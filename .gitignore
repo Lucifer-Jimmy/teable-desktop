@@ -79,3 +79,6 @@ pnpm-debug.log*
 # LocalStorage assets
 
 **/.assets
+
+# teable-desktop: PGlite local data dir
+.data/

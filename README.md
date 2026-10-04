@@ -1,171 +1,81 @@
-<div align="center">
-  <h1 align="center">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="static/assets/images/teable-vertical-dark.png">
-      <img alt="teable logo" height="120" src="static/assets/images/teable-vertical-light.png">
-    </picture>
-  </h1>
-  <h3 align="center"><strong>Turn your data into AI workflows and custom apps that 100% fit your business</strong></h3>
-  <p>One platform where data management, AI workflows, and app building come together — spreadsheet-simple on the surface, real PostgreSQL underneath. Agents work inside your live data and real processes, so what they build lands seamlessly and fits your business exactly. In the cloud or fully self-hosted.</p>
-  <p>Try out Teable using our hosted version at <a href="https://teable.ai">teable.ai</a></p>
-</div>
+# teable-desktop
 
-<div align="center">
-<a href="https://trendshift.io/repositories/8516" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8516" alt="teableio%2Fteable | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</div>
+Teable 桌面端二开仓库 —— fork 自 [teableio/teable](https://github.com/teableio/teable) `develop@5ef223888`（v1.10.0，**完整 git 历史已保留**，上游原始说明见 [README.teable.md](./README.teable.md)）。
 
-<p align="center">
-  <a target="_blank" href="https://teable.ai">Home</a> | <a target="_blank" href="https://help.teable.ai">Help</a> | <a target="_blank" href="https://teable.ai/blog">Blog</a> | <a target="_blank" href="https://teable.ai/templates">Template</a> | <a target="_blank" href="https://help.teable.ai/en/api-doc/token">API</a> | <a target="_blank" href="https://community.teable.ai">Community</a> | <a target="_blank" href="https://x.com/teableio">X</a>
-</p>
+## 目标架构（二开方向）
 
-<p align="center">
-  <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=Build%20and%20Push%20to%20Docker%20Registry">
-    <img alt="build" src="https://img.shields.io/github/actions/workflow/status/teableio/teable/docker-push.yml?label=Build&logo=github&style=flat-quare&labelColor=000000" />
-  </a>
-  <a aria-label="Codacy grade" href="https://www.codacy.com/gh/teableio/teable/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=teableio/teable&amp;utm_campaign=Badge_Grade">
-    <img alt="Codacy grade" src="https://img.shields.io/codacy/grade/dff9c944af284a0fad4e165eb1727467?logo=codacy&style=flat-square&labelColor=000&label=Codacy">
-  </a>
-  <a aria-label="Top language" href="https://github.com/teableio/teable/search?l=typescript">
-    <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teableio/teable?style=flat-square&labelColor=000&color=blue">
-  </a>
-</p>
+- **切 Redis**：缓存 → sqlite/memory，任务队列 → 进程内本地队列（v1 自带降级路径，纯配置）
+- **切 ShareDB**：实时 → v2 `BroadcastChannel`（多窗口）/ `Noop`，前端数据层改走 v2 总线
+- **切 PostgreSQL 服务 → PGlite**：数据即本地目录（v2 适配器已存在，e2e 默认就在用）
+- **测试环境 Windows 原生直跑，零 Docker**（本 fork 已移除 `dockers/`、`Makefile`、`.github/` 等 CI/流水线与组织运营文件）
 
-![Teable cover](static/assets/images/teable-cover.png)
+规划文档见 [`docs/`](./docs/)：`teable-desktop-analysis.md`（功能地图/裁剪清单）、`desktop-rewrite-roadmap.md`（v1→v2 合并路线）、`desktop-target-structure-and-modules.md`（终态结构）、`infra-first-switch.md`（去服务化=新阶段 0）。
 
-## Quick Guide
+## 目录结构
 
-1. Want to see it in action? Try Teable on our hosted cloud at [teable.ai](https://teable.ai).
-2. Deploying it yourself? Start from the [Deployment guide](https://help.teable.ai/en/deploy/choose) — standalone in minutes, or the full AI platform on your own machines.
-
-## Four platforms in one
-
-AI chat, App Builder, and app deployments are part of Teable, not bolt-ons.
-Self-hosting Teable deploys four platforms in one:
-
-- **A secure, scalable agent sandbox** — every AI session runs in its own isolated container, started on demand and gone when the session ends.
-- **A resource-efficient app deployment platform** — every app your team builds and publishes runs as its own lightweight, long-lived container.
-- **An AI workflow engine** — automations triggered by record changes, schedules, and webhooks, with AI steps, running right where your data lives.
-- **A full-featured database collaboration platform on PostgreSQL** — tables, views, permissions, and API.
-
-Self-hosting wraps your own compute into an **agent-ready, fully controlled
-productivity environment** — putting AI in the hands of everyone on your team.
-See [Architecture](https://help.teable.ai/en/deploy/architecture) for how the
-pieces fit together.
-
-## ✨Features
-
-### 🤖 AI-native
-
-- **AI Chat** — ask, analyze, and operate on your data in natural language.
-- **App Builder** — describe the app you need; an agent builds it in an isolated sandbox and deploys it to its own URL in one click.
-- **AI automations** — react to record changes, schedules, and webhooks, with AI steps doing the reasoning.
-- **AI field filling** — generate and enrich field values in bulk.
-
-### 🍺 Everything you need, out of the box
-
-Grid, Form, Kanban, Gallery, and Calendar views; formulas, field conversion,
-filtering, grouping, sorting, and aggregation; comments, record history,
-undo/redo, and real-time collaboration; attachments preview, batch editing,
-import/export, search, validation, charts, plugins, SQL query — and millions
-of rows without breaking a sweat.
-
-More features land all the time — see the <a target="_blank" href="https://help.teable.ai/en/changelog">Changelog</a>.
-
-## Deploy
-
-Three ways to run Teable — pick by what you need (full comparison in the
-[Deployment guide](https://help.teable.ai/en/deploy/choose)):
-
-|                                        | **Teable Cloud**               | **Full-featured self-host**                                                 | **Standalone self-host**                                |
-| -------------------------------------- | ------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Tables, collaboration, API, automation | ✅                             | ✅                                                                          | ✅                                                      |
-| AI features (chat, agents)             | ✅                             | ✅                                                                          | ❌                                                      |
-| App Builder (build & deploy apps)      | ✅                             | ✅                                                                          | ❌                                                      |
-| Start here                             | [teable.ai](https://teable.ai) | [teableio/teable-deployment](https://github.com/teableio/teable-deployment) | [Docker guide](https://help.teable.ai/en/deploy/docker) |
-
-Prefer not to deploy by hand? **Hand [teableio/teable-deployment](https://github.com/teableio/teable-deployment)
-to your AI agent** (Claude Code, Codex, …) together with a domain, a DNS token,
-and access to the target machine or cluster — it can take the deployment end
-to end.
-
-Already running standalone Teable? The runtime plane installs next to it and
-your data stays in place: [migration guide](https://github.com/teableio/teable-deployment/blob/main/migration/2026-07-basic-to-full-featured.md).
-
-## Development
-
-#### 1. Initialize
-
-```sh
-# Enabling the Help Management Package Manager
-corepack enable
-
-# Install project dependencies
-pnpm install
+```
+apps/nestjs-backend/   后端宿主（AGPL）：REST + WS + 内嵌 Next.js
+apps/nextjs-app/       前端（AGPL）：页面薄壳，业务在 src/features/**
+packages/              共享层（MIT）：core/formula/sdk/openapi/ui-lib/icons/common-i18n/db-*-prisma
+packages/v2/           v2 业务内核（MIT）：core + PGlite/仓储/实时适配器 + 组合根 + e2e 安全网
+plugins/               官方插件宿主（@teable/plugin）
 ```
 
-#### 2. Initialize Postgres
+## 常用命令
 
-```sh
-make switch-db-mode
+```bash
+pnpm install                          # pnpm 按 packageManager 自动切 9.13.0；Node 22 由 .npmrc 管理
+pnpm g:typecheck                      # 全仓 typecheck
+pnpm build:v2                         # 构建 v2 全家（tsdown）
+pnpm -F @teable/v2-e2e test-e2e       # v2 内核测试（PGlite memory://，无需数据库、无需 Docker）
+pnpm -F @teable/core test-unit        # 单测
 ```
 
-#### 3. Custom Environment Variables（Optional）
+### 启动开发服务（后端热重载，自动带起 Next.js）
 
-```sh
-cd apps/nextjs-app
-cp .env.development .env.development.local
+```bash
+cd apps/nestjs-backend && pnpm dev    # → http://localhost:3000
 ```
 
-#### 4. Run Dev Server
+> 当前默认环境仍指向 docker PostgreSQL/Redis（见下）；无 Docker 路线按下节推进。
 
-you just need to start backend, it will start next server for frontend automatically, file change will be auto reload
+### 数据库初始化（原 `make postgres.mode` 的等价命令）
 
-```sh
-cd apps/nestjs-backend
-pnpm dev
+```bash
+pnpm -F @teable/db-main-prisma prisma-generate
+pnpm -F @teable/db-main-prisma prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
+pnpm -F @teable/db-data-prisma prisma-generate
+pnpm -F @teable/db-data-prisma prisma-migrate deploy --schema ./prisma/schema.prisma
 ```
 
-## Why Teable?
+### 环境变量
 
-**Software should fit the work — not the other way around.** Every team knows
-the compromise: you have a concrete business need, you search for an app, and
-it covers 70% of it. So you bend your process around the tool, or you file a
-ticket and wait quarters for custom development. The work adapts to the
-software, when it should be the software adapting to the work.
+后端按 `apps/nextjs-app/.env.development.local` → `.env.development` → `.env` 顺序加载（提交的 `.env.development` 含 docker PG/Redis 默认值）。本地覆盖一律写在 `apps/nextjs-app/.env.development.local`。
 
-**AI only changes this if it reaches the real workflow.** A wave of AI tools
-can now generate an app on demand — but each one is built in a vacuum: an
-empty database, no knowledge of how your team actually operates, one more
-island to integrate and maintain. The demo impresses; the workflow stays the
-same.
+**去 Redis 第 0 步**（纯配置，见 `docs/infra-first-switch.md`）：
 
-**Teable puts the agent where the work already happens.** Your data, apps,
-automations, permissions, and collaborators live here, on a real PostgreSQL —
-and the AI operates all of it. Chat acts on live data. Automations reason
-over records as they change. App Builder ships working systems wired to the
-same database your team already uses — so what gets built is never another
-silo, but a precise extension of the workflow it came from. AI lands in the
-work seamlessly, and what it builds fits the business exactly.
+```ini
+# apps/nextjs-app/.env.development.local
+BACKEND_CACHE_PROVIDER=sqlite
+BACKEND_STORAGE_PROVIDER=local
+# 不设 BACKEND_CACHE_REDIS_URI → 队列/会话/undo 自动走本地
+```
 
-**And it's an architecture an IT team can say yes to.** Self-hosting Teable
-packages your own compute into an agent-ready platform for the whole team:
-every AI session confined to an isolated sandbox, every app shipped as a
-standard container, everything resting on PostgreSQL and HTTP APIs, with your
-own models and keys, on your own infrastructure. Full AI capability, full
-control — neither traded for the other.
+**PGlite 桥**（第 1 步 spike）：后端进程内起 PGlite + socket server，`PRISMA_DATABASE_URL` 指向 `127.0.0.1:<port>`，全程无 Docker——详见 `docs/infra-first-switch.md` §2。
 
-The result is a different way of building: business systems shaped precisely
-to your business, delivered in days instead of quarters, evolving as fast as
-the work itself — by everyone on the team, not just the people who code.
+## 许可（重要）
 
-# License
+本仓库 fork 了 teable 的 `apps/*`（**AGPL-3.0 + 品牌保护附加条款**）：
 
-This repository is the Teable Community Edition: free for self-hosting under
-the AGPL-3.0 license (packages under `packages/` are MIT). See
-[./LICENSE](./LICENSE) for details.
+- 分发（含以网络服务形式提供）须以同许可开源；
+- **不得移除/替换 Teable 品牌元素**（名称、logo、视觉识别）；
+- 商业闭源需取得 Teable Inc. 授权（support@teable.ai）。
 
-The official image [`ghcr.io/teableio/teable`](https://github.com/teableio/teable/pkgs/container/teable)
-ships the complete product: free to run, with paid plans unlocking AI features
-and advanced enterprise capabilities **in place** — activate with a license
-key, no image swap, no migration. See [pricing](https://teable.ai/pricing) and
-[subscribe & activate](https://help.teable.ai/en/deploy/activate).
+`packages/**`（含 v2 全家）为 MIT。
+
+## 上游同步
+
+- `upstream` remote 指向本地镜像 `../teable`（可 `git remote set-url upstream https://github.com/teableio/teable` 切到 GitHub）；
+- fork 基线：`5ef223888`；
+- 同步方式：`git fetch upstream && git diff 5ef223888..upstream/develop -- <路径>` 后按需重放；
+- fork 首提交剥离了 CI/流水线与组织运营文件（`.github/`、`dockers/`、`Makefile`、`renovate`/`crowdin` 等），同步时注意这些路径不存在。
