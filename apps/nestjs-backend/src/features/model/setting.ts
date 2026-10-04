@@ -63,7 +63,10 @@ export class SettingModel {
     statsType: 'instance:setting',
   })
   async getSetting() {
-    const rows = await this.prismaService.setting.findMany();
+    // txClient() routes through the active CLS transaction when one is open —
+    // an engine (pool) query issued from inside a transaction needs a second
+    // pool connection, which self-deadlocks on single-session stores (PGlite).
+    const rows = await this.prismaService.txClient().setting.findMany();
     return rows.map((row) => ({
       ...row,
       content: stripCanarySpaceIdsFromSettingCache(row.name, parseSettingContent(row.content)),
@@ -72,7 +75,7 @@ export class SettingModel {
 
   /** Full canaryConfig including spaceIds — always from DB, never the stripped setting cache. */
   async getCanaryConfigFromDb(): Promise<ICanaryConfig | null> {
-    const row = await this.prismaService.setting.findUnique({
+    const row = await this.prismaService.txClient().setting.findUnique({
       where: { name: SettingKey.CANARY_CONFIG },
       select: { content: true },
     });

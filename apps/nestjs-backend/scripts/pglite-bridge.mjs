@@ -13,7 +13,11 @@
  *   PGLITE_DATA_DIR         data directory (default: <repo>/.data/teable)
  *   PGLITE_PORT             listen port (default: 5544)
  *   PGLITE_HOST             listen host (default: 127.0.0.1)
- *   PGLITE_MAX_CONNECTIONS  max concurrent wire connections (default: 1)
+ *   PGLITE_MAX_CONNECTIONS  max concurrent wire connections (default: 8; queries are
+ *                           queued at the query level, and the app keeps a single pooled
+ *                           connection, so a small bound is enough headroom for the
+ *                           backend plus short-lived prisma CLI connections)
+ *   PGLITE_DEBUG            set to 1 for pglite-socket debug logging
  *
  * Keep this process running while the backend (`pnpm dev` in
  * apps/nestjs-backend) or prisma migrations are active — both connect to it.
@@ -32,7 +36,14 @@ const rawDir = process.env.PGLITE_DATA_DIR ?? path.join(repoRoot, '.data', 'teab
 const dataDir = path.isAbsolute(rawDir) ? rawDir : path.resolve(repoRoot, rawDir);
 const port = Number(process.env.PGLITE_PORT ?? 5544);
 const host = process.env.PGLITE_HOST ?? '127.0.0.1';
-const maxConnections = Number(process.env.PGLITE_MAX_CONNECTIONS ?? 1);
+// Hard-killed backend processes leave half-open sockets the server only
+// notices on the next write, so the handler count creeps up over restart
+// cycles during development — keep generous headroom above the app's
+// pre-warmed pool (DATABASE_POOL_PREWARM / connection_limit) and the
+// observation pool, and restart the bridge if it ever wedges.
+const maxConnections = Number(process.env.PGLITE_MAX_CONNECTIONS ?? 64);
+const debug = process.env.PGLITE_DEBUG === '1';
+const inspect = process.env.PGLITE_INSPECT === '1';
 
 mkdirSync(dataDir, { recursive: true });
 
@@ -42,7 +53,7 @@ console.log(
   `[pglite-bridge] ${((await db.query('SELECT version()')).rows[0] ?? {}).version ?? 'postgres ready'}`
 );
 
-const server = new PGLiteSocketServer({ db, host, port, maxConnections });
+const server = new PGLiteSocketServer({ db, host, port, maxConnections, debug, inspect });
 await server.start();
 console.log(`[pglite-bridge] listening on ${host}:${port} (maxConnections=${maxConnections})`);
 console.log(

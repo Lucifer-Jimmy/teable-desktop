@@ -88,13 +88,64 @@ const resolveAdmissionKey = (baseId: string): string => {
   return `${queuePrefix}:${COMPUTED_OUTBOX_WAKEUP_QUEUE}:admission:{${baseId}}`;
 };
 
+/**
+ * In-process lease registry mirroring the Redis Lua admission scripts for
+ * zero-container local mode (no Redis / no BullMQ). Single-process semantics:
+ * Date.now() replaces redis TIME, and expired entries are pruned lazily on access.
+ */
+class LocalAdmissionLeaseStore {
+  private readonly leases = new Map<string, Map<string, number>>();
+
+  private prune(key: string, now: number): void {
+    const owners = this.leases.get(key);
+    if (!owners) return;
+    for (const [owner, expiresAt] of owners) {
+      if (expiresAt <= now) owners.delete(owner);
+    }
+    if (owners.size === 0) this.leases.delete(key);
+  }
+
+  acquire(key: string, leaseMs: number, capacity: number, owner: string): number {
+    const now = Date.now();
+    this.prune(key, now);
+    const owners = this.leases.get(key);
+    if (owners && owners.size >= capacity) return 0;
+    if (owners) owners.set(owner, now + leaseMs);
+    else this.leases.set(key, new Map([[owner, now + leaseMs]]));
+    return 1;
+  }
+
+  renew(key: string, owner: string, leaseMs: number): number {
+    const now = Date.now();
+    const owners = this.leases.get(key);
+    const expiresAt = owners?.get(owner);
+    if (owners === undefined || expiresAt === undefined) return 0;
+    if (expiresAt <= now) {
+      owners.delete(owner);
+      if (owners.size === 0) this.leases.delete(key);
+      return 0;
+    }
+    owners.set(owner, now + leaseMs);
+    return 1;
+  }
+
+  release(key: string, owner: string): number {
+    const owners = this.leases.get(key);
+    if (!owners?.delete(owner)) return 0;
+    if (owners.size === 0) this.leases.delete(key);
+    return 1;
+  }
+}
+
 @Injectable()
 export class ComputedOutboxBaseAdmissionService {
   private readonly logger = new Logger(ComputedOutboxBaseAdmissionService.name);
+  private readonly localLeases = new LocalAdmissionLeaseStore();
 
   constructor(
     @InjectQueue(COMPUTED_OUTBOX_WAKEUP_QUEUE)
-    private readonly queue: Queue,
+    @Optional()
+    private readonly queue?: Queue,
     @Optional()
     private readonly claimConcurrency?: ComputedOutboxClaimConcurrencyService
   ) {}
@@ -190,6 +241,21 @@ export class ComputedOutboxBaseAdmissionService {
   }
 
   private async eval(script: string, keys: string[], args: (string | number)[]): Promise<unknown> {
+    // Zero-container local mode: no BullMQ queue — serve the lease scripts from
+    // the in-process registry instead of Redis.
+    if (!this.queue) {
+      const key = keys[0];
+      if (script === ACQUIRE_SCRIPT) {
+        return this.localLeases.acquire(key, Number(args[0]), Number(args[1]), String(args[2]));
+      }
+      if (script === RENEW_SCRIPT) {
+        return this.localLeases.renew(key, String(args[0]), Number(args[1]));
+      }
+      if (script === RELEASE_SCRIPT) {
+        return this.localLeases.release(key, String(args[0]));
+      }
+      throw new Error('Unknown admission lease script for local mode');
+    }
     const redis = await this.queue.client;
     return redis.eval(script, keys.length, ...keys, ...args);
   }

@@ -160,6 +160,7 @@ class NamedPrismaService
 
   async onModuleInit() {
     await this.$connect();
+    await this.prewarmPool();
 
     if (process.env.NODE_ENV === 'production') return;
 
@@ -171,6 +172,40 @@ class NamedPrismaService
         Duration: `${e.duration} ms`,
       });
     });
+  }
+
+  /**
+   * Open every pool slot up front, serially (DATABASE_POOL_PREWARM=1).
+   *
+   * Wire bridges with a serialized backend (e.g. the PGlite socket server) can
+   * drop a connection's startup reply when several clients handshake while
+   * other connections are mid-query. Pre-warming all slots at boot — one
+   * handshake at a time, before any request traffic — plus an idle timeout of
+   * 0 means the app never performs a runtime handshake again. It also surfaces
+   * "pool smaller than its consumers" sizing problems as a hang at boot
+   * instead of intermittent request timeouts.
+   */
+  private async prewarmPool(): Promise<void> {
+    if (process.env.DATABASE_POOL_PREWARM !== '1') return;
+
+    const pool = this.poolLease.pool;
+    const max = pool.options.max;
+    if (!Number.isInteger(max) || (max as number) <= 1) return;
+
+    const held: Array<{ release: () => void }> = [];
+    try {
+      for (let i = 0; i < (max as number); i++) {
+        held.push(await pool.connect());
+      }
+    } finally {
+      for (const client of held.reverse()) {
+        try {
+          client.release();
+        } catch {
+          // pool already closed during shutdown
+        }
+      }
+    }
   }
 
   async onModuleDestroy() {

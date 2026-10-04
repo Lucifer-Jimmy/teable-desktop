@@ -26,6 +26,20 @@ export interface IPgPoolAcquireOptions {
 /** Fail fast on TCP connect instead of hanging on OS timeout (~75–130s+). */
 export const DEFAULT_PG_POOL_CONNECTION_TIMEOUT_MS = 5000;
 
+/**
+ * Keep pooled connections warm when set to 0 — required for the PGlite wire
+ * bridge, whose connection multiplexer can drop concurrent handshakes: a
+ * connection established while other connections are mid-query may never
+ * receive its startup reply. With warm, never-idle-closed connections the
+ * pool stops re-handshaking at request time entirely.
+ */
+const resolveIdleTimeoutMillis = (): number | undefined =>
+  parseNonNegativeInteger(process.env.DATABASE_POOL_IDLE_TIMEOUT_MS);
+
+/** pg default is 0 (never rotate); exposed for parity with the idle timeout. */
+const resolveMaxLifetimeSeconds = (): number | undefined =>
+  parseNonNegativeInteger(process.env.DATABASE_POOL_MAX_LIFETIME_SECONDS);
+
 export interface IPgPoolSnapshot {
   applicationName: string;
   database: string;
@@ -139,6 +153,8 @@ export class PgPoolRegistry implements OnApplicationShutdown {
         application_name: applicationName,
         connectionString: normalized.connectionString,
         connectionTimeoutMillis: resolveConnectionTimeoutMillis(options),
+        idleTimeoutMillis: resolveIdleTimeoutMillis(),
+        maxLifetimeSeconds: resolveMaxLifetimeSeconds(),
         max: normalized.max,
       });
       pool.on?.('error', (error) => {
@@ -147,6 +163,21 @@ export class PgPoolRegistry implements OnApplicationShutdown {
           error instanceof Error ? error.stack : undefined
         );
       });
+      // Temporary leak tracer for the PGlite bridge bring-up (PG_POOL_DEBUG=1):
+      // prints every checkout/return so an acquired-but-never-released client is
+      // visible in the console interleaved with request logs.
+      if (process.env.PG_POOL_DEBUG === '1') {
+        const tag = `[pgpool ${options.poolName ?? normalized.database}]`;
+        const ts = () => new Date().toISOString().substring(11, 23);
+        pool.on('connect', () => console.log(`${ts()} ${tag} +connect total=${pool.totalCount}`));
+        pool.on('acquire', () =>
+          console.log(`${ts()} ${tag} +acquire idle=${pool.idleCount}/${pool.totalCount}`)
+        );
+        pool.on('release', () =>
+          console.log(`${ts()} ${tag} -release  idle=${pool.idleCount}/${pool.totalCount}`)
+        );
+        pool.on('remove', () => console.log(`${ts()} ${tag} -remove   total=${pool.totalCount}`));
+      }
       entry = {
         applicationName,
         database: normalized.database,

@@ -25,14 +25,40 @@ const normalizeQueryResult = <T extends QueryResult | QueryResult[]>(result: T):
   } as T;
 };
 
+const adapterDebug = (message: string): void => {
+  if (process.env.PG_POOL_DEBUG === '1') {
+    console.log(`${new Date().toISOString().substring(11, 23)} [pgadapter] ${message}`);
+  }
+};
+
+const firstQueryText = (arg: unknown): string => {
+  if (typeof arg === 'string') return arg;
+  const text = (arg as { text?: string } | null)?.text;
+  return typeof text === 'string' ? text : '(structured)';
+};
+
 const wrapQueryable = <T extends Pool | PoolClient>(queryable: T): T =>
   new Proxy(queryable, {
     get(target, property, receiver) {
       if (property === 'query') {
         return async (...args: unknown[]) => {
-          const result = await Reflect.apply(target.query, target, args);
-          return normalizeQueryResult(result);
+          adapterDebug(`client.query: ${firstQueryText(args[0]).substring(0, 60)}`);
+          try {
+            const result = await Reflect.apply(target.query, target, args);
+            adapterDebug(`client.query done: ${firstQueryText(args[0]).substring(0, 60)}`);
+            return normalizeQueryResult(result);
+          } catch (error) {
+            adapterDebug(
+              `client.query FAILED: ${firstQueryText(args[0]).substring(0, 60)} — ${
+                error instanceof Error ? error.message : String(error)
+              }`
+            );
+            throw error;
+          }
         };
+      }
+      if (property === 'release') {
+        adapterDebug('client.release');
       }
 
       const value = Reflect.get(target, property, receiver) as unknown;
@@ -49,10 +75,16 @@ export const createPrismaPgAdapter = (pool: Pool, schema?: string): PrismaPg => 
   const prismaPool = new Proxy(pool, {
     get(target, property, receiver) {
       if (property === 'connect') {
-        return async () => wrapQueryable(await target.connect());
+        return async () => {
+          adapterDebug('pool.connect requested');
+          const client = await target.connect();
+          adapterDebug('pool.connect acquired');
+          return wrapQueryable(client);
+        };
       }
       if (property === 'query') {
         return async (...args: unknown[]) => {
+          adapterDebug(`pool.query: ${firstQueryText(args[0]).substring(0, 60)}`);
           const result = await Reflect.apply(target.query, target, args);
           return normalizeQueryResult(result);
         };

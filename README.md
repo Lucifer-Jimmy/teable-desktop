@@ -37,31 +37,41 @@ pnpm -F @teable/core test-unit        # 单测
 cd apps/nestjs-backend && pnpm dev    # → http://localhost:3000
 ```
 
-> 当前默认环境仍指向 docker PostgreSQL/Redis（见下）；无 Docker 路线按下节推进。
+## 本地零容器启动（已跑通 ✅）
 
-### 数据库初始化（原 `make postgres.mode` 的等价命令）
+**无 Docker / 无 Redis / 无 PostgreSQL 服务**——数据库是 PGlite（WASM PG 18.3，数据落 `.data/teable`），缓存是 sqlite，任务队列走进程内本地队列。三个终端：
 
 ```bash
-pnpm -F @teable/db-main-prisma prisma-generate
-pnpm -F @teable/db-main-prisma prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
-pnpm -F @teable/db-data-prisma prisma-generate
-pnpm -F @teable/db-data-prisma prisma-migrate deploy --schema ./prisma/schema.prisma
+# ① 桥（常驻，等价于本地 PG 服务）
+pnpm pglite:bridge
+
+# ② 首次初始化（迁移已入库可跳过；注意 NODE_ENV 前缀，否则 .env.development.local 不生效）
+NODE_ENV=development pnpm -F @teable/db-main-prisma prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
+NODE_ENV=development pnpm -F @teable/db-data-prisma prisma-migrate deploy --schema ./prisma/schema.prisma
+
+# ③ 后端（内嵌 Next.js）→ http://localhost:3000
+cd apps/nestjs-backend && pnpm dev
 ```
 
-### 环境变量
+首个注册用户自动成为实例管理员（无 SMTP 也能注册登录，邮件未配置时静默 no-op）。
 
-后端按 `apps/nextjs-app/.env.development.local` → `.env.development` → `.env` 顺序加载（提交的 `.env.development` 含 docker PG/Redis 默认值）。本地覆盖一律写在 `apps/nextjs-app/.env.development.local`。
+### 环境与关键机制（`apps/nextjs-app/.env.development.local`）
 
-**去 Redis 第 0 步**（纯配置，见 `docs/infra-first-switch.md`）：
+后端按 `.env.development.local` → `.env.development` → `.env` 顺序加载（prisma CLI 命令需 `NODE_ENV=development` 前缀才读取 `.local` 覆盖）。
 
-```ini
-# apps/nextjs-app/.env.development.local
-BACKEND_CACHE_PROVIDER=sqlite
-BACKEND_STORAGE_PROVIDER=local
-# 不设 BACKEND_CACHE_REDIS_URI → 队列/会话/undo 自动走本地
-```
+| 机制 | 说明 |
+|---|---|
+| `PRISMA_DATABASE_URL → 127.0.0.1:5544` + `connection_limit=1` | 全栈共用一条桥连接。**必须为 1**：pglite-socket 多路复用器无法安全交错多连接的扩展协议（并发时挂死或 `portal "" does not exist`） |
+| `DATABASE_POOL_IDLE_TIMEOUT_MS=0` | 池连接永不空闲关闭——多路复用器会弄丢与活跃查询竞争的握手，运行期绝不能重建连接 |
+| `BACKEND_CACHE_REDIS_URI=`（空） | 无 Redis：缓存 sqlite、队列本地化、BullMQ 根模块不注册、computed-outbox 唤醒走进程内 publisher |
+| `BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ENABLED=false` | BYODB 迁移 worker 零延迟重试会占死唯一连接（本就是裁剪清单里的 SaaS 设施） |
+| `OTEL_EXPORTER_OTLP_ENDPOINT=`（空） | 静音无收集器的导出尝试 |
 
-**PGlite 桥**（第 1 步 spike）：后端进程内起 PGlite + socket server，`PRISMA_DATABASE_URL` 指向 `127.0.0.1:<port>`，全程无 Docker——详见 `docs/infra-first-switch.md` §2。
+**事务内查询纪律**：`prismaService.$tx` 内部发起的引擎查询必须走 `prismaService.txClient()`（路由到 CLS 事务客户端），否则会向池要第二条连接而自死锁（唯一连接正被事务持有）。上游多数代码已遵守此惯例，`SettingModel` 是漏网之鱼（已修）。
+
+**调试开关**：`PG_POOL_DEBUG=1` 输出池借还 + prisma 适配器每条 SQL；桥用 `PGLITE_DEBUG=1` / `PGLITE_INSPECT=1` / `PGLITE_PORT` / `PGLITE_DATA_DIR` / `PGLITE_MAX_CONNECTIONS`。
+
+**已知限制**：强杀后端会在桥上留下半开连接（handler 计数只增不减），多次重启后若后端连不上桥，重启桥即可；附件 avatar URL 含 Windows 反斜杠（上游小瑕疵）。
 
 ## 许可（重要）
 
