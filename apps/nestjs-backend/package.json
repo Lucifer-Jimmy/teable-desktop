@@ -57,6 +57,8 @@
     "generate-cover": "nyc report --report-dir=coverage/nestjs-backend --temp-dir=coverage/nestjs-backend -r text -r html -r clover"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-socket": "0.2.11",
     "@faker-js/faker": "8.4.1",
     "@nestjs/cli": "10.3.2",
     "@nestjs/testing": "10.3.5",

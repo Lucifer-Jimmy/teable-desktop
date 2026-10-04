@@ -59,11 +59,13 @@ export const envValidationSchema = Joi.object({
       .pattern(/^sqlite:\/\//)
       .message('Cache `sqlite` the URI must start with the protocol `sqlite://`'),
   }),
-  // cache-redis
+  // cache-redis (optional: unset/empty = no Redis — the cache falls back to sqlite,
+  // job queues fall back to the in-process local queue, and the BullMQ root
+  // connection plus the computed-outbox wakeup queue are not registered)
   BACKEND_CACHE_REDIS_URI: Joi.string()
+    .allow('')
     .pattern(/^(redis:\/\/|rediss:\/\/)/)
-    .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`')
-    .required(),
+    .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`'),
 
   V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
   V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),

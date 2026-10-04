@@ -62,15 +62,38 @@ describe('envValidationSchema', () => {
     expect(error?.message).toContain('PRISMA_META_DATABASE_URL');
   });
 
-  it('requires Redis for the BullMQ computed outbox', () => {
-    const { error } = envValidationSchema.validate(
+  it('allows a missing Redis URI (zero-container local mode)', () => {
+    const { error, value } = envValidationSchema.validate(
       createEnv({
         PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
         BACKEND_CACHE_REDIS_URI: undefined,
       })
     );
 
-    expect(error?.message).toContain('BACKEND_CACHE_REDIS_URI');
+    expect(error).toBeUndefined();
+    expect(value.BACKEND_CACHE_REDIS_URI).toBeUndefined();
+  });
+
+  it('allows an empty Redis URI that shadows a dev default', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        BACKEND_CACHE_REDIS_URI: '',
+      })
+    );
+
+    expect(error).toBeUndefined();
+  });
+
+  it('still rejects a malformed Redis URI', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        BACKEND_CACHE_REDIS_URI: 'http://127.0.0.1:6379',
+      })
+    );
+
+    expect(error?.message).toContain('must start with the protocol `redis://`');
   });
 
   it('accepts BullMQ computed outbox configuration with Redis', () => {

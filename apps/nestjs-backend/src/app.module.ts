@@ -2,7 +2,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigService } from '@nestjs/config';
 import { SentryModule } from '@sentry/nestjs/setup';
 import Redis from 'ioredis';
 import type { ICacheConfig } from './configs/cache.config';
@@ -125,25 +125,32 @@ export const appModules = {
   imports: [
     GlobalModule,
     ...appModules.imports,
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => {
-        const redisUri = configService.get<ICacheConfig>('cache')?.redis.uri;
-        if (!redisUri) {
-          throw new Error('Redis URI is not defined');
-        }
-        const redis = new Redis(redisUri, { lazyConnect: true, maxRetriesPerRequest: null });
-        await redis.connect();
+    // The BullMQ root connection is optional: without BACKEND_CACHE_REDIS_URI every
+    // feature queue falls back to the in-process local queue (event-job module)
+    // and the computed-outbox wakeup transport switches to its local publisher.
+    ConditionalModule.registerWhen(
+      BullModule.forRootAsync({
+        imports: [ConfigModule],
+        useFactory: async (configService: ConfigService) => {
+          const redisUri = configService.get<ICacheConfig>('cache')?.redis.uri;
+          if (!redisUri) {
+            throw new Error('Redis URI is not defined');
+          }
+          const redis = new Redis(redisUri, { lazyConnect: true, maxRetriesPerRequest: null });
+          await redis.connect();
 
-        return {
-          connection: redis,
-          // Tests give short-lived app instances their own queue namespace so
-          // they don't consume each other's jobs; unset means the bull default.
-          prefix: process.env.BACKEND_QUEUE_PREFIX,
-        };
-      },
-      inject: [ConfigService],
-    }),
+          return {
+            connection: redis,
+            // Tests give short-lived app instances their own queue namespace so
+            // they don't consume each other's jobs; unset means the bull default.
+            prefix: process.env.BACKEND_QUEUE_PREFIX,
+          };
+        },
+        inject: [ConfigService],
+      }),
+      (env) => Boolean(env.BACKEND_CACHE_REDIS_URI),
+      { timeout: process.env.NODE_ENV === 'test' ? 60_000 : 5000 }
+    ),
   ],
   controllers: [],
 })
