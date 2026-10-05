@@ -12,8 +12,11 @@ export function assertPathWithinStorage(relativePath: string, storageDir: string
     });
   }
 
-  const resolvedPath = resolve(storageDir, relativePath);
-  if (!resolvedPath.startsWith(storageDir + '/')) {
+  // resolve() uses platform separators (backslash on Windows); normalize both
+  // sides to forward slashes so the containment check works on every platform.
+  const resolvedPath = resolve(storageDir, relativePath).split(String.fromCharCode(92)).join('/');
+  const normalizedStorageDir = storageDir.split(String.fromCharCode(92)).join('/');
+  if (!resolvedPath.startsWith(normalizedStorageDir + '/')) {
     throw new CustomHttpException('Could not find attachment', HttpErrorCode.VALIDATION_ERROR, {
       localization: {
         i18nKey: 'httpErrors.attachment.invalidPath',

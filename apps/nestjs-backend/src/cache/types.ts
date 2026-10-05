@@ -37,8 +37,8 @@ export interface ICacheStore {
   // concurrent approval.
   [key: `oauth:device-poll:${string}`]: number;
   // userId:tableId:windowId
-  [key: `operations:undo:${string}:${string}:${string}`]: IUndoRedoOperation[];
-  [key: `operations:redo:${string}:${string}:${string}`]: IUndoRedoOperation[];
+  [key: `operations:undo:${string}:${string}:${string}:${string}`]: IUndoRedoOperation[];
+  [key: `operations:redo:${string}:${string}:${string}:${string}`]: IUndoRedoOperation[];
   [key: `operations:engine:${string}:${string}:${string}`]: 'v1' | 'v2';
   [key: `plugin:auth-code:${string}`]: IPluginAuthStore;
   [key: `signin:attempts:${string}`]: number;

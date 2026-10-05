@@ -7,6 +7,21 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 
+/**
+ * Unique per-boot epoch for undo/redo stack keys.
+ *
+ * The stacks live in the shared cache (sqlite in local mode) with a 24h TTL.
+ * Without a boot discriminator, a stack written before a backend restart
+ * stays reachable after it; a browser tab that reconnected without a full
+ * reload keeps the same window id, and any trigger of undo/redo (including
+ * the errant replays observed during development) then executes operations
+ * recorded against table/field versions that no longer exist — silently
+ * deleting tables and reverting record edits. Keying by boot epoch makes
+ * every prior session's stacks unreachable immediately on restart; they
+ * then age out via TTL without needing pattern deletion in the cache store.
+ */
+const BOOT_EPOCH = `b${Date.now().toString(36)}`;
+
 @Injectable()
 export class UndoRedoStackService {
   constructor(
@@ -16,12 +31,28 @@ export class UndoRedoStackService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
+  private undoKey(
+    userId: string,
+    tableId: string,
+    windowId: string
+  ): `operations:undo:${string}:${string}:${string}:${string}` {
+    return `operations:undo:${BOOT_EPOCH}:${userId}:${tableId}:${windowId}`;
+  }
+
+  private redoKey(
+    userId: string,
+    tableId: string,
+    windowId: string
+  ): `operations:redo:${string}:${string}:${string}:${string}` {
+    return `operations:redo:${BOOT_EPOCH}:${userId}:${tableId}:${windowId}`;
+  }
+
   private async getUndoStack(userId: string, tableId: string, windowId: string) {
-    return (await this.cacheService.get(`operations:undo:${userId}:${tableId}:${windowId}`)) || [];
+    return (await this.cacheService.get(this.undoKey(userId, tableId, windowId))) || [];
   }
 
   private async getRedoStack(userId: string, tableId: string, windowId: string) {
-    return (await this.cacheService.get(`operations:redo:${userId}:${tableId}:${windowId}`)) || [];
+    return (await this.cacheService.get(this.redoKey(userId, tableId, windowId))) || [];
   }
 
   private async setUndoStack(
@@ -31,7 +62,7 @@ export class UndoRedoStackService {
     undoStack: IUndoRedoOperation[]
   ) {
     await this.cacheService.set(
-      `operations:undo:${userId}:${tableId}:${windowId}`,
+      this.undoKey(userId, tableId, windowId),
       undoStack,
       this.thresholdConfig.undoExpirationTime
     );
@@ -44,7 +75,7 @@ export class UndoRedoStackService {
     redoStack: IUndoRedoOperation[]
   ) {
     await this.cacheService.set(
-      `operations:redo:${userId}:${tableId}:${windowId}`,
+      this.redoKey(userId, tableId, windowId),
       redoStack,
       this.thresholdConfig.undoExpirationTime
     );
@@ -67,7 +98,7 @@ export class UndoRedoStackService {
     await this.setUndoStack(userId, tableId, windowId, undoStack);
 
     // Clear redo stack when a new operation is pushed
-    await this.cacheService.del(`operations:redo:${userId}:${tableId}:${windowId}`);
+    await this.cacheService.del(this.redoKey(userId, tableId, windowId));
 
     this.eventEmitterService.emit(Events.OPERATION_PUSH, operation);
   }

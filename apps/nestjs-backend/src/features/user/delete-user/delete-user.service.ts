@@ -22,7 +22,7 @@ export class DeleteUserService {
   ) {}
 
   private async updateUserAvatarToDeleted(userId: string) {
-    const path = join(StorageAdapter.getDir(UploadType.Avatar), userId);
+    const path = `${StorageAdapter.getDir(UploadType.Avatar)}/${userId}`;
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
     const mimetype = `image/png`;
     const { hash } = await this.storageAdapter.uploadFileWidthPath(

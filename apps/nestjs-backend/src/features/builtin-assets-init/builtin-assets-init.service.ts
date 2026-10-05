@@ -250,11 +250,11 @@ export class BuiltinAssetsInitService implements OnModuleInit {
    */
   async uploadStatic(id: string, filePath: string, type: UploadType): Promise<string> {
     if (process.env.NODE_ENV === 'test') {
-      return `/${join(StorageAdapter.getDir(type), id)}`;
+      return `/${StorageAdapter.getDir(type)}/${id}`;
     }
 
     const fullPath = resolve(process.cwd(), filePath);
-    const path = join(StorageAdapter.getDir(type), id);
+    const path = `${StorageAdapter.getDir(type)}/${id}`;
     const bucket = StorageAdapter.getBucket(type);
 
     // Get file metadata based on file type

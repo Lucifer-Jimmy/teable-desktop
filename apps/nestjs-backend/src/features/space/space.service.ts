@@ -301,7 +301,7 @@ export class SpaceService {
       });
     }
 
-    const storagePath = join(StorageAdapter.getDir(UploadType.SpaceAvatar), spaceId);
+    const storagePath = `${StorageAdapter.getDir(UploadType.SpaceAvatar)}/${spaceId}`;
     const bucket = StorageAdapter.getBucket(UploadType.SpaceAvatar);
 
     // Crop the image to a square before uploading

@@ -199,7 +199,7 @@ export class SettingOpenApiService {
   }
 
   async getServerBrand(): Promise<{ brandName: string; brandLogo: string }> {
-    const logoPath = join(StorageAdapter.getDir(UploadType.Logo), EMAIL_LOGO_TOKEN);
+    const logoPath = `${StorageAdapter.getDir(UploadType.Logo)}/${EMAIL_LOGO_TOKEN}`;
     return {
       brandName: 'Teable',
       brandLogo: getPublicFullStorageUrl(logoPath),
@@ -292,7 +292,7 @@ export class SettingOpenApiService {
 
   async uploadLogo(file: Express.Multer.File) {
     const token = 'brand';
-    const path = join(StorageAdapter.getDir(UploadType.Logo), 'brand');
+    const path = `${StorageAdapter.getDir(UploadType.Logo)}/brand`;
     const bucket = StorageAdapter.getBucket(UploadType.Logo);
 
     const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, file.path, {
@@ -1079,7 +1079,7 @@ export class SettingOpenApiService {
     if (provider === 'local') {
       return undefined;
     }
-    const logoPath = join(StorageAdapter.getDir(UploadType.Logo), EMAIL_LOGO_TOKEN);
+    const logoPath = `${StorageAdapter.getDir(UploadType.Logo)}/${EMAIL_LOGO_TOKEN}`;
     return getPublicFullStorageUrl(logoPath);
   }
 

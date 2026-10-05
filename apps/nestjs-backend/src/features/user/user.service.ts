@@ -346,7 +346,7 @@ export class UserService {
   }
 
   async updateAvatar(id: string, avatarFile: { path: string; mimetype: string; size: number }) {
-    const storagePath = join(StorageAdapter.getDir(UploadType.Avatar), id);
+    const storagePath = `${StorageAdapter.getDir(UploadType.Avatar)}/${id}`;
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
 
     // Crop the image to a square before uploading
@@ -441,7 +441,7 @@ export class UserService {
   }
 
   private async generateDefaultAvatar(id: string) {
-    const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
+    const path = `${StorageAdapter.getDir(UploadType.Avatar)}/${id}`;
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
 
     const svgSize = [410, 410];
@@ -487,7 +487,7 @@ export class UserService {
             // Crop the image to square and resize
             const croppedBuffer = await this.cropAvatarBuffer(imageBuffer);
 
-            const storagePath = join(StorageAdapter.getDir(UploadType.Avatar), userId);
+            const storagePath = `${StorageAdapter.getDir(UploadType.Avatar)}/${userId}`;
             const bucket = StorageAdapter.getBucket(UploadType.Avatar);
             const { hash } = await this.storageAdapter.uploadFile(
               bucket,

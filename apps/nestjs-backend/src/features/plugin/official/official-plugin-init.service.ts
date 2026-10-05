@@ -94,7 +94,7 @@ export class OfficialPluginInitService implements OnModuleInit {
     filePath: string,
     type: UploadType
   ): Promise<IUploadResult> {
-    const path = join(StorageAdapter.getDir(type), id);
+    const path = `${StorageAdapter.getDir(type)}/${id}`;
 
     if (process.env.NODE_ENV === 'test') {
       return { id, path, url: `/${path}`, size: 0, hash: '', mimetype: 'image/png' };
