@@ -1,12 +1,8 @@
-import { Airtable, FileText, GoogleSheet } from '@teable/icons';
-import { UserIntegrationProvider } from '@teable/openapi';
+import { FileText } from '@teable/icons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
-import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { AirtableImportDialog } from '../airtable-import';
-import { GoogleSheetImportDialog } from '../google-sheet-import';
 import { UploadPanelDialog } from './UploadPanelDialog';
 
 interface IImportBaseDialogProps {
@@ -15,7 +11,7 @@ interface IImportBaseDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type IImportSource = 'file' | 'airtable' | 'googleSheet';
+type IImportSource = 'file';
 
 /**
  * Space-level "import" entry: first pick a source (a .tea file, an Airtable
@@ -27,19 +23,7 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
   const { spaceId, open, onOpenChange } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const [source, setSource] = React.useState<IImportSource | null>(null);
-  const { data: publicSetting } = usePublicSettingQuery();
-  // Integration imports need their instance-level OAuth app (AIRTABLE_CLIENT_ID /
-  // GOOGLE_SHEET_CLIENT_ID); without any of them the card would only lead to a
-  // broken connect flow, so the file importer is the sole source and the chooser
-  // step is skipped entirely.
-  const airtableImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
-    UserIntegrationProvider.Airtable
-  );
-  const googleSheetImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
-    UserIntegrationProvider.GoogleSheet
-  );
-  const effectiveSource =
-    source ?? (airtableImportEnabled || googleSheetImportEnabled ? null : 'file');
+  const effectiveSource = source ?? 'file';
 
   // Reset the picked source once the whole flow is closed so reopening always
   // starts back at the chooser.
@@ -72,40 +56,6 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
                 </div>
               </div>
             </button>
-            {airtableImportEnabled && (
-              <button
-                type="button"
-                onClick={() => setSource('airtable')}
-                className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <Airtable className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{t('space:airtableImport.title')}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {t('space:importBaseDialog.fromAirtableDesc')}
-                  </div>
-                </div>
-              </button>
-            )}
-            {googleSheetImportEnabled && (
-              <button
-                type="button"
-                onClick={() => setSource('googleSheet')}
-                className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <GoogleSheet className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{t('space:googleSheetImport.title')}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {t('space:importBaseDialog.fromGoogleSheetDesc')}
-                  </div>
-                </div>
-              </button>
-            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -113,16 +63,6 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
       <UploadPanelDialog
         spaceId={spaceId}
         open={open && effectiveSource === 'file'}
-        onOpenChange={(next) => !next && closeAll()}
-      />
-      <AirtableImportDialog
-        spaceId={spaceId}
-        open={open && effectiveSource === 'airtable'}
-        onOpenChange={(next) => !next && closeAll()}
-      />
-      <GoogleSheetImportDialog
-        spaceId={spaceId}
-        open={open && effectiveSource === 'googleSheet'}
         onOpenChange={(next) => !next && closeAll()}
       />
     </>

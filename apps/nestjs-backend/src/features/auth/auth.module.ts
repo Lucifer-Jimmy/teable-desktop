@@ -13,12 +13,10 @@ import { PermissionModule } from './permission.module';
 import { SessionStoreService } from './session/session-store.service';
 import { SessionModule } from './session/session.module';
 import { SessionSerializer } from './session/session.serializer';
-import { SocialModule } from './social/social.module';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { AnonymousStrategy } from './strategies/anonymous/anonymous.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SessionStrategy } from './strategies/session.strategy';
-import { TurnstileModule } from './turnstile/turnstile.module';
 
 const CONDITIONAL_MODULE_TIMEOUT = process.env.CI ? 30000 : 5000;
 
@@ -35,9 +33,7 @@ const CONDITIONAL_MODULE_TIMEOUT = process.env.CI ? 30000 : 5000;
       },
       { timeout: CONDITIONAL_MODULE_TIMEOUT }
     ),
-    SocialModule,
     PermissionModule,
-    TurnstileModule,
     DeleteUserModule,
   ],
   providers: [

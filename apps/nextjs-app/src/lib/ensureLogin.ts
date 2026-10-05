@@ -7,7 +7,6 @@ import type {
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
 import { getUserMe } from '@/backend/api/rest/get-user';
-import { providersAll } from '@/features/auth/components/SocialAuth';
 import { isValidRedirectPath } from './isValidRedirectPath';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -48,18 +47,11 @@ export default function ensureLogin<P extends { [key: string]: any }>(
           },
         };
       }
-      // User is not logged in, redirect to social auth if on login page
-      if (isLoginPage) {
-        const result = redirectSocialAuth(req);
-        if (result) {
-          return result;
-        }
-      }
     } catch (error) {
       if (error instanceof HttpError) {
         if (isLoginPage) {
           // User is not logged in, handle login page
-          return redirectSocialAuth(req) || handler(context);
+          return handler(context);
         }
         if (error.status < 500 && error.status >= 400) {
           // User is not logged in, redirect to sign up by default
@@ -143,24 +135,3 @@ async function ensureLoginParallel<P extends { [key: string]: any }>(
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
-
-// Redirect to social auth if password login is disabled and only one provider is available
-function redirectSocialAuth(req: GetServerSidePropsContext['req']) {
-  const rawRedirect = new URLSearchParams(req?.url?.split('?')[1] ?? '').get('redirect');
-  const redirect = rawRedirect && isValidRedirectPath(rawRedirect) ? rawRedirect : null;
-  const envProviders = process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [];
-  const envPasswordLoginDisabled = process.env.PASSWORD_LOGIN_DISABLED === 'true';
-  if (envPasswordLoginDisabled && envProviders.length === 1) {
-    const provider = providersAll.find((provider) => provider.id === envProviders[0]);
-
-    if (provider?.authUrl)
-      return {
-        redirect: {
-          destination: redirect
-            ? `${provider.authUrl}?redirect_uri=${encodeURIComponent(redirect)}`
-            : provider.authUrl,
-          permanent: false,
-        },
-      };
-  }
-}

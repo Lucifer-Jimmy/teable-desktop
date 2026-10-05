@@ -13,7 +13,6 @@ import { authConfig } from '@/features/i18n/auth.config';
 import { isValidRedirectPath } from '@/lib/isValidRedirectPath';
 import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
-import { SocialAuth } from '../components/SocialAuth';
 import { Terms } from '../components/Terms';
 import { useDisallowSignUp } from '../useDisallowSignUp';
 
@@ -115,7 +114,6 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
               </Link>
             </nav>
             {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
-            <SocialAuth />
             {children}
             <Terms />
           </div>

@@ -15,7 +15,6 @@ import { CollaboratorPage } from '@/features/app/blocks/space-setting/collaborat
 import { GeneralPage } from '@/features/app/blocks/space-setting/general';
 import { SpaceSettingTab } from '@/features/app/blocks/space-setting/types';
 import { Account } from '@/features/app/components/setting/Account';
-import { Integration } from '@/features/app/components/setting/integration/Integration';
 import { OAuthAppSection } from '@/features/app/components/setting/oauth-app';
 import { PersonalAccessTokenSection } from '@/features/app/components/setting/personal-access-token';
 import { System } from '@/features/app/components/setting/System';
@@ -119,12 +118,6 @@ export const UnifiedSettingDialogContent = ({
         name: t('settings.setting.title'),
         Icon: Settings,
         content: <System />,
-      },
-      {
-        key: PersonalSettingTab.Integration,
-        name: t('settings.integration.title'),
-        Icon: Link,
-        content: <Integration />,
       },
       {
         key: PersonalSettingTab.PersonalAccessToken,

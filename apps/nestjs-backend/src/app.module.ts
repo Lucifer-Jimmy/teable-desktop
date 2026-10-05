@@ -10,7 +10,6 @@ import { ConfigModule } from './configs/config.module';
 import { AccessTokenModule } from './features/access-token/access-token.module';
 import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
 import { AiModule } from './features/ai/ai.module';
-import { AirtableImportModule } from './features/airtable-import/airtable-import.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AuthModule } from './features/auth/auth.module';
 import { BaseModule } from './features/base/base.module';
@@ -23,7 +22,6 @@ import { CollaboratorModule } from './features/collaborator/collaborator.module'
 import { DashboardModule } from './features/dashboard/dashboard.module';
 import { ExportOpenApiModule } from './features/export/open-api/export-open-api.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
-import { GoogleSheetImportModule } from './features/google-sheet-import/google-sheet-import.module';
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
 import { IntegrityModule } from './features/integrity/integrity.module';
@@ -80,8 +78,6 @@ export const appModules = {
     BaseShareModule,
     AccessTokenModule,
     ImportOpenApiModule,
-    AirtableImportModule,
-    GoogleSheetImportModule,
     ExportOpenApiModule,
     PinModule,
     AdminOpenApiModule,

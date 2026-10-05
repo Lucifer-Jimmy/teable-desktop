@@ -24,7 +24,6 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { authConfig } from '../../i18n/auth.config';
 import { SendVerificationButton } from './SendVerificationButton';
-import TurnstileWidget from './TurnstileWidget';
 
 export interface ISignForm {
   className?: string;
@@ -39,20 +38,17 @@ export const SignForm: FC<ISignForm> = (props) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
-  const [turnstileToken, setTurnstileToken] = useState<string>();
   const { countdown, setCountdown } = useCutDown();
-  const [turnstileKey, setTurnstileKey] = useState<number>(0);
   const env = useEnv();
   const emailRef = useRef<HTMLInputElement>(null);
 
   const { data: setting } = usePublicSettingQuery();
-  const { turnstileSiteKey, signupVerificationSendCodeMailRate = 0 } = setting ?? {};
+  const { signupVerificationSendCodeMailRate = 0 } = setting ?? {};
 
   useEffect(() => {
     setSignupVerificationCode(undefined);
     setSignupVerificationToken(undefined);
     setError(undefined);
-    setTurnstileToken(undefined);
     setCountdown(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
@@ -114,9 +110,6 @@ export const SignForm: FC<ISignForm> = (props) => {
         default:
           setError(error.message);
       }
-      // Reset turnstile token on any error to force re-verification
-      setTurnstileToken(undefined);
-      setTurnstileKey((prev) => prev + 1);
       setIsLoading(false);
       return true;
     },
@@ -124,10 +117,6 @@ export const SignForm: FC<ISignForm> = (props) => {
       preventGlobalError: true,
     },
     onSuccess: (data, variables) => {
-      // Reset turnstile token after successful submission
-      setTurnstileToken(undefined);
-      setTurnstileKey((prev) => prev + 1);
-
       // Cross-domain GA4 signup event (Google Ads conversions upload server-side)
       if (variables.type === 'signup' && data.data) {
         trackSignUp({
@@ -148,8 +137,7 @@ export const SignForm: FC<ISignForm> = (props) => {
     mutate: sendSignupVerificationCodeMutation,
     isPending: sendSignupVerificationCodeLoading,
   } = useMutation({
-    mutationFn: ({ email, turnstileToken }: { email: string; turnstileToken?: string }) =>
-      sendSignupVerificationCode(email, turnstileToken),
+    mutationFn: ({ email }: { email: string }) => sendSignupVerificationCode(email),
     onSuccess: (data) => {
       setSignupVerificationToken(data.data.token);
       // Start countdown based on configured rate limit (only if configured)
@@ -159,14 +147,8 @@ export const SignForm: FC<ISignForm> = (props) => {
       ) {
         setCountdown(signupVerificationSendCodeMailRate);
       }
-      // Reset turnstile token and force widget refresh
-      setTurnstileToken(undefined);
-      setTurnstileKey((prev) => prev + 1);
     },
     onError: (error: HttpError) => {
-      // Reset turnstile on error
-      setTurnstileToken(undefined);
-      setTurnstileKey((prev) => prev + 1);
       if (
         error.code === HttpErrorCode.TOO_MANY_REQUESTS &&
         error.data &&
@@ -221,21 +203,6 @@ export const SignForm: FC<ISignForm> = (props) => {
 
   const showVerificationCode = type === 'signup' && signupVerificationToken;
 
-  // Turnstile callbacks
-  const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
-  const handleTurnstileError = useCallback(() => {
-    setTurnstileToken(undefined);
-    setError(t('auth:signError.turnstileError'));
-  }, [t]);
-  const handleTurnstileExpire = useCallback(() => {
-    setTurnstileToken(undefined);
-    setError(t('auth:signError.turnstileExpired'));
-  }, [t]);
-  const handleTurnstileTimeout = useCallback(() => {
-    setTurnstileToken(undefined);
-    setError(t('auth:signError.turnstileTimeout'));
-  }, [t]);
-
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -248,7 +215,6 @@ export const SignForm: FC<ISignForm> = (props) => {
       email,
       password,
       verification: code ? { code, token: signupVerificationToken } : undefined,
-      turnstileToken: turnstileToken,
     };
 
     const { error } = validation(form);
@@ -259,12 +225,6 @@ export const SignForm: FC<ISignForm> = (props) => {
 
     if (showVerificationCode && !signupVerificationCode) {
       setError(t('auth:signupError.verificationCodeRequired'));
-      return;
-    }
-
-    // Check Turnstile verification if enabled
-    if (turnstileSiteKey && !turnstileToken) {
-      setError(t('auth:signError.turnstileRequired'));
       return;
     }
 
@@ -358,41 +318,17 @@ export const SignForm: FC<ISignForm> = (props) => {
                     return;
                   }
 
-                  // Check Turnstile verification if enabled
-                  if (turnstileSiteKey && !turnstileToken) {
-                    setError(t('auth:signError.turnstileRequired'));
-                    return;
-                  }
-
                   const res = sendSignupVerificationCodeRoSchema.safeParse({
                     email,
-                    turnstileToken,
                   });
                   if (!res.success) {
                     setError(fromZodError(res.error).message);
                     return;
                   }
-                  sendSignupVerificationCodeMutation({ email, turnstileToken });
+                  sendSignupVerificationCodeMutation({ email });
                 }}
                 loading={sendSignupVerificationCodeLoading}
                 countdown={countdown}
-              />
-            </div>
-          )}
-
-          {/* Turnstile Widget */}
-          {turnstileSiteKey && (
-            <div className="flex justify-center">
-              <TurnstileWidget
-                key={turnstileKey}
-                siteKey={turnstileSiteKey}
-                onVerify={handleTurnstileVerify}
-                onError={handleTurnstileError}
-                onExpire={handleTurnstileExpire}
-                onTimeout={handleTurnstileTimeout}
-                action={type}
-                theme="auto"
-                size="normal"
               />
             </div>
           )}

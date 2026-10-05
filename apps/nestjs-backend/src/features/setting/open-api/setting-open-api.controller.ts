@@ -40,14 +40,12 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
-import { TurnstileService } from '../../auth/turnstile/turnstile.service';
 import { SettingOpenApiService } from './setting-open-api.service';
 
 @Controller('api/admin/setting')
 export class SettingOpenApiController {
   constructor(
     private readonly settingOpenApiService: SettingOpenApiService,
-    private readonly turnstileService: TurnstileService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -69,7 +67,6 @@ export class SettingOpenApiController {
     const setting = await this.settingOpenApiService.getPublicSetting();
     return {
       ...setting,
-      turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
       changeEmailSendCodeMailRate: this.thresholdConfig.changeEmailSendCodeMailRate,
       resetPasswordSendMailRate: this.thresholdConfig.resetPasswordSendMailRate,
       signupVerificationSendCodeMailRate: this.thresholdConfig.signupVerificationSendCodeMailRate,

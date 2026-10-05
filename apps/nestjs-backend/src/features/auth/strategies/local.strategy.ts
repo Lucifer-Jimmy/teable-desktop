@@ -28,15 +28,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
 
   async validate(req: Request, email: string, password: string) {
     try {
-      const turnstileToken = req.body?.turnstileToken;
-      const remoteIp =
-        req.ip || req.connection.remoteAddress || (req.headers['x-forwarded-for'] as string);
-      const user = await this.authService.validateUserByEmailWithTurnstile(
-        email,
-        password,
-        turnstileToken,
-        remoteIp
-      );
+      const user = await this.authService.validateUserByEmailWithTurnstile(email, password);
       if (!user) {
         throw new CustomHttpException(
           'Email or password is incorrect',

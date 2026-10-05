@@ -23,7 +23,6 @@ import { SettingService } from '../../setting/setting.service';
 import { UserService } from '../../user/user.service';
 import { TeableJwtService } from '../jwt/teable-jwt.service';
 import { SessionStoreService } from '../session/session-store.service';
-import { TurnstileService } from '../turnstile/turnstile.service';
 
 @Injectable()
 export class LocalAuthService {
@@ -41,8 +40,7 @@ export class LocalAuthService {
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly jwtService: TeableJwtService,
-    private readonly settingService: SettingService,
-    private readonly turnstileService: TurnstileService
+    private readonly settingService: SettingService
   ) {}
 
   private async encodePassword(password: string) {
@@ -102,19 +100,8 @@ export class LocalAuthService {
     return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
   }
 
-  /**
-   * Validate user by email and password with Turnstile verification
-   */
-  async validateUserByEmailWithTurnstile(
-    email: string,
-    pass: string,
-    turnstileToken?: string,
-    remoteIp?: string
-  ) {
-    // Validate Turnstile token if enabled
-    await this.validateTurnstileIfEnabled(turnstileToken, remoteIp);
-
-    // Proceed with normal user validation
+  async validateUserByEmailWithTurnstile(email: string, pass: string) {
+    // Turnstile verification removed (round 2 auth cut).
     return this.validateUserByEmail(email, pass);
   }
 
@@ -161,73 +148,10 @@ export class LocalAuthService {
     }
   }
 
-  /**
-   * Validate Turnstile token if Turnstile is enabled
-   */
-  private async validateTurnstileIfEnabled(
-    turnstileToken?: string,
-    remoteIp?: string
-  ): Promise<void> {
-    const isTurnstileEnabled = this.turnstileService.isTurnstileEnabled();
-
-    this.logger.log(
-      `Turnstile validation check - enabled: ${isTurnstileEnabled}, hasToken: ${!!turnstileToken}, tokenLength: ${turnstileToken?.length}, remoteIp: ${remoteIp}`
-    );
-
-    if (!isTurnstileEnabled) {
-      return;
-    }
-
-    if (!turnstileToken) {
-      this.logger.error(
-        `Turnstile token is missing - enabled: ${isTurnstileEnabled}, remoteIp: ${remoteIp}`
-      );
-      throw new BadRequestException('Turnstile token is required');
-    }
-
-    const validation = await this.turnstileService.validateTurnstileTokenWithRetry(
-      turnstileToken,
-      remoteIp
-    );
-
-    if (!validation.valid) {
-      this.logger.warn('Turnstile validation failed', {
-        reason: validation.reason,
-        remoteIp,
-      });
-
-      let errorMessage = 'Verification failed. Please try again.';
-
-      switch (validation.reason) {
-        case 'turnstile_disabled':
-          errorMessage = 'Verification service is not available';
-          break;
-        case 'invalid_token_format':
-        case 'token_too_long':
-          errorMessage = 'Invalid verification token';
-          break;
-        case 'turnstile_failed':
-          errorMessage = 'Verification failed. Please refresh and try again.';
-          break;
-        case 'api_error':
-        case 'internal_error':
-        case 'max_retries_exceeded':
-          errorMessage = 'Verification service temporarily unavailable. Please try again.';
-          break;
-      }
-
-      throw new BadRequestException(errorMessage);
-    }
-  }
-
   async signup(body: ISignup, remoteIp?: string) {
-    const { email, password, defaultSpaceName, refMeta, inviteCode, turnstileToken } = body;
+    const { email, password, defaultSpaceName, refMeta, inviteCode } = body;
 
-    this.logger.log(
-      `Signup attempt - email: ${email}, hasPassword: ${!!password}, hasTurnstileToken: ${!!turnstileToken}, tokenLength: ${turnstileToken?.length}, hasVerification: ${!!body.verification}, remoteIp: ${remoteIp}`
-    );
-
-    await this.validateTurnstileIfEnabled(turnstileToken, remoteIp);
+    this.logger.log(`Signup attempt - email: ${email}, remoteIp: ${remoteIp}`);
 
     await this.verifySignup(body);
 
