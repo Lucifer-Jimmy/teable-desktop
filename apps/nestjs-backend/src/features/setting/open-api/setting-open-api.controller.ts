@@ -13,7 +13,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type {
   IPublicSettingVo,
-  ISetSettingMailTransportConfigVo,
   ISettingVo,
   ITestLLMVo,
   IUploadLogoVo,
@@ -30,8 +29,6 @@ import {
   testLLMRoSchema,
   updateSettingRoSchema,
   ITestLLMRo,
-  setSettingMailTransportConfigRoSchema,
-  ISetSettingMailTransportConfigRo,
   batchTestLLMRoSchema,
   IBatchTestLLMRo,
   testApiKeyRoSchema,
@@ -154,25 +151,5 @@ export class SettingOpenApiController {
   @Get('test-public-access')
   async testPublicAccess(): Promise<ITestPublicAccessVo> {
     return await this.settingOpenApiService.testPublicAccess();
-  }
-
-  @Permissions('instance|update')
-  @Put('set-mail-transport-config')
-  async setMailTransportConfig(
-    @Body(new ZodValidationPipe(setSettingMailTransportConfigRoSchema))
-    setMailTransportConfigRo: ISetSettingMailTransportConfigRo
-  ): Promise<ISetSettingMailTransportConfigVo> {
-    await this.settingOpenApiService.setMailTransportConfig(setMailTransportConfigRo);
-
-    return {
-      ...setMailTransportConfigRo,
-      transportConfig: {
-        ...setMailTransportConfigRo.transportConfig,
-        auth: {
-          user: setMailTransportConfigRo.transportConfig.auth.user,
-          pass: '',
-        },
-      },
-    };
   }
 }

@@ -20,9 +20,6 @@ vi.mock('@prisma/client', () => ({
   Prisma: {},
   PrismaClient: class PrismaClient {},
 }));
-vi.mock('../invitation/invitation.service', () => ({
-  InvitationService: class InvitationService {},
-}));
 vi.mock('../collaborator/collaborator.service', () => ({
   CollaboratorService: class CollaboratorService {},
 }));

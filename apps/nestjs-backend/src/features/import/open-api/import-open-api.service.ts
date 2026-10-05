@@ -20,7 +20,6 @@ import type { IClsStore } from '../../../types/cls';
 import { AuditScope } from '../../audit/audit-scope';
 import { BaseNodeService } from '../../base-node/base-node.service';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
-import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
@@ -60,7 +59,6 @@ export class ImportOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly notificationService: NotificationService,
     private readonly shareDbService: ShareDbService,
     private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor,
     private readonly fieldOpenApiService: FieldOpenApiService,

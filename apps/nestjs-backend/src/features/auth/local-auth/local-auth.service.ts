@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { EmailVerifyCodeType, MailTransporterType, MailType } from '@teable/openapi';
-import type { IChangePasswordRo, IInviteWaitlistVo, ISignup } from '@teable/openapi';
+import type { IChangePasswordRo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
 import ms from 'ms';
@@ -19,7 +19,6 @@ import { Events } from '../../../event-emitter/events';
 import { UserEmailChangeEvent } from '../../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../../types/cls';
 import { second } from '../../../utils/second';
-import { MailSenderService } from '../../mail-sender/mail-sender.service';
 import { SettingService } from '../../setting/setting.service';
 import { UserService } from '../../user/user.service';
 import { TeableJwtService } from '../jwt/teable-jwt.service';
@@ -35,7 +34,6 @@ export class LocalAuthService {
     private readonly userService: UserService,
     private readonly cls: ClsService<IClsStore>,
     private readonly sessionStoreService: SessionStoreService,
-    private readonly mailSenderService: MailSenderService,
     private readonly cacheService: CacheService,
     private readonly eventEmitterService: EventEmitterService,
     @AuthConfig() private readonly authConfig: IAuthConfig,
@@ -133,27 +131,9 @@ export class LocalAuthService {
     });
   }
 
-  private async verifySignup(body: ISignup) {
-    const setting = await this.settingService.getSetting();
-    if (!setting?.enableEmailVerification) {
-      return;
-    }
-    const { email, verification } = body;
-    if (!verification) {
-      const { token, expiresTime } = await this.sendSignupVerificationCode(email);
-      throw new CustomHttpException(
-        'Verification is required',
-        HttpErrorCode.UNPROCESSABLE_ENTITY,
-        {
-          token,
-          expiresTime,
-        }
-      );
-    }
-    const { code, email: _email } = await this.jwtVerifySignupCode(verification.token);
-    if (_email !== email || code !== verification.code) {
-      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
-    }
+  private async verifySignup(_body: ISignup) {
+    // Email verification removed with the mail-sender feature (round 1 collaboration cut).
+    return;
   }
 
   private isRegisteredValidate(user: Awaited<ReturnType<typeof this.userService.getUserByEmail>>) {
@@ -293,73 +273,6 @@ export class LocalAuthService {
     return res;
   }
 
-  async sendSignupVerificationCodeWithTurnstile(
-    email: string,
-    turnstileToken?: string,
-    remoteIp?: string
-  ) {
-    this.logger.log(
-      `Send verification code attempt - email: ${email}, hasTurnstileToken: ${!!turnstileToken}, tokenLength: ${turnstileToken?.length}, remoteIp: ${remoteIp}`
-    );
-
-    // Validate Turnstile token if enabled
-    await this.validateTurnstileIfEnabled(turnstileToken, remoteIp);
-    return this.sendSignupVerificationCode(email);
-  }
-
-  async sendSignupVerificationCode(email: string) {
-    // Reject banned domains before any mail goes out — otherwise the
-    // verification-code mail itself becomes a spam channel and the user only
-    // learns about the ban after entering the code.
-    const { bannedEmailDomains } = await this.settingService.getSetting();
-    this.userService.throwIfEmailDomainBanned(email, bannedEmailDomains);
-    await this.userService.throwIfEmailDeniedByRiskControl('signup', email);
-
-    return await this.mailSenderService.checkSendMailRateLimit(
-      {
-        email,
-        rateLimitKey: 'signup-verification',
-        rateLimit: this.thresholdConfig.signupVerificationSendCodeMailRate,
-      },
-      async () => {
-        const code = getRandomString(4, RandomType.Number);
-        const token = await this.jwtSignupCode(email, code);
-
-        const user = await this.userService.getUserByEmail(email);
-        this.isRegisteredValidate(user);
-
-        // Log verification code sending
-        this.logger.log(
-          `Sending signup verification code - email: ${email}, timestamp: ${new Date().toISOString()}`
-        );
-
-        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          code,
-          expiresIn: this.authConfig.signupVerificationExpiresIn,
-          type: EmailVerifyCodeType.Signup,
-        });
-
-        await this.mailSenderService.sendMail(
-          {
-            to: email,
-
-            ...emailOptions,
-          },
-          {
-            type: MailType.VerifyCode,
-            transporterName: MailTransporterType.Notify,
-          }
-        );
-        return {
-          token,
-          expiresTime: new Date(
-            ms(this.authConfig.signupVerificationExpiresIn) + Date.now()
-          ).toISOString(),
-        };
-      }
-    );
-  }
-
   async changePassword({ password, newPassword }: IChangePasswordRo) {
     const userId = this.cls.get('user.id');
     const user = await this.getUserByIdOrThrow(userId);
@@ -378,82 +291,6 @@ export class LocalAuthService {
       data: {
         password: newHashPassword,
         salt: newSalt,
-      },
-    });
-    // clear session
-    await this.sessionStoreService.clearByUserId(userId);
-  }
-
-  async sendResetPasswordEmail(email: string) {
-    return await this.mailSenderService.checkSendMailRateLimit(
-      {
-        email,
-        rateLimitKey: 'send-reset-password-email',
-        rateLimit: this.thresholdConfig.resetPasswordSendMailRate,
-      },
-      async () => {
-        const user = await this.userService.getUserByEmail(email);
-        if (!user || (user.accounts.length === 0 && user.password == null)) {
-          throw new CustomHttpException(`${email} not registered`, HttpErrorCode.VALIDATION_ERROR, {
-            localization: {
-              i18nKey: 'httpErrors.auth.emailNotRegistered',
-            },
-          });
-        }
-
-        const resetPasswordCode = getRandomString(30);
-
-        const url = `${this.mailConfig.origin}/auth/reset-password?code=${resetPasswordCode}`;
-        const resetPasswordEmailOptions = await this.mailSenderService.resetPasswordEmailOptions({
-          name: user.name,
-          email: user.email,
-          resetPasswordUrl: url,
-        });
-        await this.mailSenderService.sendMail(
-          {
-            to: user.email,
-            ...resetPasswordEmailOptions,
-          },
-          {
-            type: MailType.ResetPassword,
-            transporterName: MailTransporterType.Notify,
-          }
-        );
-        await this.cacheService.set(
-          `reset-password-email:${resetPasswordCode}`,
-          { userId: user.id },
-          second(this.authConfig.resetPasswordEmailExpiresIn)
-        );
-      }
-    );
-  }
-
-  async resetPassword(code: string, newPassword: string) {
-    const resetPasswordEmail = await this.cacheService.get(`reset-password-email:${code}`);
-    if (!resetPasswordEmail) {
-      throw new CustomHttpException(`Token is invalid`, HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.auth.tokenInvalid',
-        },
-      });
-    }
-    const { userId } = resetPasswordEmail;
-    // Consume the one-time code atomically before updating the password so
-    // concurrent requests carrying the same code cannot both reset it.
-    const consumed = await this.cacheService.del(`reset-password-email:${code}`);
-    if (!consumed) {
-      throw new CustomHttpException(`Token is invalid`, HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.auth.tokenInvalid',
-        },
-      });
-    }
-    const { salt, hashPassword } = await this.encodePassword(newPassword);
-    await this.prismaService.txClient().user.update({
-      where: { id: userId, deletedTime: null },
-      data: {
-        password: hashPassword,
-        salt,
       },
     });
     // clear session
@@ -481,200 +318,5 @@ export class LocalAuthService {
     });
     // clear session
     await this.sessionStoreService.clearByUserId(userId);
-  }
-
-  async changeEmail(email: string, token: string, code: string) {
-    const currentEmail = this.cls.get('user.email');
-    const {
-      code: _code,
-      email: _currentEmail,
-      newEmail,
-    } = await this.jwtService
-      .verifyAsync<{ email: string; code: string; newEmail: string }>(token)
-      .catch(() => {
-        throw new CustomHttpException(
-          'Verification code is invalid',
-          HttpErrorCode.INVALID_CAPTCHA
-        );
-      });
-    if (
-      newEmail.toLowerCase() !== email.toLowerCase() ||
-      _currentEmail !== currentEmail ||
-      _code !== code
-    ) {
-      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
-        localization: {
-          i18nKey: 'httpErrors.auth.verificationCodeInvalid',
-        },
-      });
-    }
-    const user = this.cls.get('user');
-    const normalizedEmail = newEmail.toLowerCase();
-    await this.prismaService.txClient().user.update({
-      where: { id: user.id, deletedTime: null, deactivatedTime: null },
-      data: { email: normalizedEmail },
-    });
-    this.eventEmitterService.emitAsync(
-      Events.USER_EMAIL_CHANGE,
-      new UserEmailChangeEvent(user.id, currentEmail, normalizedEmail)
-    );
-    // clear session
-    await this.sessionStoreService.clearByUserId(user.id);
-  }
-
-  async sendChangeEmailCode(newEmail: string, password: string) {
-    const email = this.cls.get('user.email');
-    if (newEmail.toLowerCase() === email.toLowerCase()) {
-      throw new CustomHttpException(
-        'New email is the same as the current email',
-        HttpErrorCode.CONFLICT,
-        {
-          localization: {
-            i18nKey: 'httpErrors.auth.newEmailSameAsCurrentEmail',
-          },
-        }
-      );
-    }
-    const invalidPasswordError = new CustomHttpException(
-      'Password is incorrect',
-      HttpErrorCode.INVALID_CREDENTIALS,
-      {
-        localization: {
-          i18nKey: 'httpErrors.auth.passwordIncorrect',
-        },
-      }
-    );
-
-    return await this.mailSenderService.checkSendMailRateLimit(
-      {
-        email: newEmail,
-        rateLimitKey: 'send-change-email-code',
-        rateLimit: this.thresholdConfig.changeEmailSendCodeMailRate,
-      },
-      async () => {
-        const user = await this.validateUserByEmail(email, password).catch(() => {
-          throw invalidPasswordError;
-        });
-        if (!user) {
-          throw invalidPasswordError;
-        }
-        const userByNewEmail = await this.userService.getUserByEmail(newEmail);
-        if (userByNewEmail) {
-          throw new CustomHttpException(`New email is already registered`, HttpErrorCode.CONFLICT, {
-            localization: {
-              i18nKey: 'httpErrors.auth.emailAlreadyRegistered',
-            },
-          });
-        }
-        const code = getRandomString(4, RandomType.Number);
-        const token = await this.jwtService.signAsync(
-          { email, newEmail, code },
-          { expiresIn: this.baseConfig.emailCodeExpiresIn }
-        );
-        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          code,
-          expiresIn: this.baseConfig.emailCodeExpiresIn,
-          type: EmailVerifyCodeType.ChangeEmail,
-        });
-        await this.mailSenderService.sendMail(
-          {
-            to: newEmail,
-            ...emailOptions,
-          },
-          {
-            type: MailType.VerifyCode,
-            transporterName: MailTransporterType.Notify,
-          }
-        );
-        return { token };
-      }
-    );
-  }
-
-  async joinWaitlist(email: string) {
-    const setting = await this.settingService.getSetting();
-    if (!setting?.enableWaitlist) {
-      throw new CustomHttpException(`Waitlist is not enabled`, HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.auth.waitlistNotEnabled',
-        },
-      });
-    }
-    const user = await this.userService.getUserByEmail(email);
-    if (user) {
-      throw new CustomHttpException(`Email already registered`, HttpErrorCode.CONFLICT, {
-        localization: {
-          i18nKey: 'httpErrors.auth.emailAlreadyRegistered',
-        },
-      });
-    }
-    const find = await this.prismaService.txClient().waitlist.findFirst({
-      where: { email },
-    });
-    if (find) {
-      return find;
-    }
-    return await this.prismaService.txClient().waitlist.create({
-      data: { email },
-    });
-  }
-
-  async getWaitlist() {
-    return await this.prismaService.txClient().waitlist.findMany({
-      orderBy: { createdTime: 'desc' },
-    });
-  }
-
-  async inviteWaitlist(emails: string[]) {
-    const list = await this.prismaService.txClient().waitlist.findMany({
-      where: { email: { in: emails } },
-    });
-
-    const updateList = list.filter((item) => !item.invite);
-
-    if (updateList.length === 0) {
-      return [];
-    }
-
-    await this.prismaService.txClient().waitlist.updateMany({
-      where: { email: { in: updateList.map((item) => item.email) } },
-      data: { invite: true, inviteTime: new Date().toISOString() },
-    });
-
-    const res: IInviteWaitlistVo = [];
-    for (const item of updateList) {
-      const times = 10;
-      const code = await this.genWaitlistInviteCode(times);
-      const mailOptions = await this.mailSenderService.waitlistInviteEmailOptions({
-        email: item.email,
-        code,
-        times,
-        name: 'Guest',
-        waitlistInviteUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
-      });
-      res.push({
-        email: item.email,
-        code,
-        times,
-      });
-      this.mailSenderService.sendMail(
-        {
-          to: item.email,
-          ...mailOptions,
-        },
-        {
-          transporterName: MailTransporterType.Notify,
-          type: MailType.WaitlistInvite,
-        }
-      );
-    }
-
-    return res;
-  }
-
-  async genWaitlistInviteCode(limit: number) {
-    const code = `${getRandomString(4)}-${getRandomString(4)}`;
-    await this.cacheService.set(`waitlist:invite-code:${code}`, limit, '30d');
-    return code;
   }
 }

@@ -3,7 +3,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { EventJobModule } from '../../../event-emitter/event-job/event-job.module';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { StorageModule } from '../../attachments/plugins/storage.module';
-import { NotificationModule } from '../../notification/notification.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { ImportMetricsModule } from '../metrics/import-metrics.module';
 import {
@@ -28,7 +27,6 @@ import {
     EventJobModule.registerQueue(TABLE_IMPORT_RESULT_QUEUE),
     ShareDbModule,
     RecordOpenApiModule,
-    NotificationModule,
     StorageModule,
     EventEmitterModule,
     ImportMetricsModule,

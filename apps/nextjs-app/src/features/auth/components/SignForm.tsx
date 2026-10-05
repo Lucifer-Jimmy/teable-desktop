@@ -37,7 +37,6 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [signupVerificationToken, setSignupVerificationToken] = useState<string>();
   const [signupVerificationCode, setSignupVerificationCode] = useState<string>();
   const router = useRouter();
-  const [inviteCode, setInviteCode] = useState<string>(router.query.inviteCode as string);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
   const [turnstileToken, setTurnstileToken] = useState<string>();
@@ -47,19 +46,7 @@ export const SignForm: FC<ISignForm> = (props) => {
   const emailRef = useRef<HTMLInputElement>(null);
 
   const { data: setting } = usePublicSettingQuery();
-  const {
-    enableWaitlist = false,
-    turnstileSiteKey,
-    signupVerificationSendCodeMailRate = 0,
-  } = setting ?? {};
-
-  const joinWaitlist = useCallback(() => {
-    if (enableWaitlist) {
-      const email = emailRef.current?.value;
-      const url = email ? `/waitlist?email=${email}` : '/waitlist';
-      router.push(url);
-    }
-  }, [enableWaitlist, router]);
+  const { turnstileSiteKey, signupVerificationSendCodeMailRate = 0 } = setting ?? {};
 
   useEffect(() => {
     setSignupVerificationCode(undefined);
@@ -256,14 +243,11 @@ export const SignForm: FC<ISignForm> = (props) => {
     const password = (event.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
     const code = (event.currentTarget.elements.namedItem('verification-code') as HTMLInputElement)
       ?.value;
-    const inviteCode = (event.currentTarget.elements.namedItem('invite-code') as HTMLInputElement)
-      ?.value;
 
     const form = {
       email,
       password,
       verification: code ? { code, token: signupVerificationToken } : undefined,
-      inviteCode: enableWaitlist ? inviteCode : undefined,
       turnstileToken: turnstileToken,
     };
 
@@ -349,27 +333,6 @@ export const SignForm: FC<ISignForm> = (props) => {
               </Link>
             )}
           </div>
-
-          {enableWaitlist && type === 'signup' && (
-            <div className="grid gap-3">
-              <Label htmlFor="invite-code">{t('common:waitlist.code')}</Label>
-              <div className="flex items-center">
-                <Input
-                  className="h-9 sm:h-8"
-                  id="invite-code"
-                  type="text"
-                  placeholder={t('common:waitlist.inviteCodePlaceholder')}
-                  autoComplete="off"
-                  disabled={isLoading}
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                />
-                <Button variant="link" className="p-2 text-xs" type="button" onClick={joinWaitlist}>
-                  {t('common:waitlist.join')}
-                </Button>
-              </div>
-            </div>
-          )}
 
           {showVerificationCode && (
             <div className="mt-4 grid gap-3">

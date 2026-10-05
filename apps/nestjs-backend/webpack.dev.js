@@ -1,5 +1,4 @@
 const path = require('path');
-const CopyPlugin = require('copy-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const glob = require('glob');
 const nodeExternals = require('webpack-node-externals');
@@ -65,9 +64,6 @@ module.exports = function (options, webpack) {
           configFile: 'tsconfig.json',
           memoryLimit: 4096,
         },
-      }),
-      new CopyPlugin({
-        patterns: [{ from: 'src/features/mail-sender/templates', to: 'templates' }],
       }),
     ],
   };

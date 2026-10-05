@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { Trans } from 'next-i18next';
 import React, { useContext } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
-import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { SettingDialog } from '@overridable/SettingDialog';
 import { DuplicateBaseModal } from '../blocks/base/duplicate/DuplicateBaseModal';
@@ -67,7 +66,6 @@ export const SideBarFooter: React.FC = () => {
         <DuplicateBaseModal />
         <TemplateCreateBaseModal />
         <SpaceSubscriptionModal />
-        <NotificationsManage />
       </div>
     </div>
   );

@@ -20,7 +20,6 @@ import { BuiltinAssetsInitModule } from './features/builtin-assets-init';
 import { CanaryModule } from './features/canary';
 import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
-import { CommentOpenApiModule } from './features/comment/comment-open-api.module';
 import { DashboardModule } from './features/dashboard/dashboard.module';
 import { ExportOpenApiModule } from './features/export/open-api/export-open-api.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
@@ -28,13 +27,8 @@ import { GoogleSheetImportModule } from './features/google-sheet-import/google-s
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
 import { IntegrityModule } from './features/integrity/integrity.module';
-import { InvitationModule } from './features/invitation/invitation.module';
-import { MailSenderOpenApiModule } from './features/mail-sender/open-api/mail-sender-open-api.module';
-import { MailSenderMergeModule } from './features/mail-sender/open-api/mail-sender.merge.module';
 import { NextModule } from './features/next/next.module';
-import { NotificationModule } from './features/notification/notification.module';
 import { OAuthModule } from './features/oauth/oauth.module';
-import { OrganizationModule } from './features/organization/organization.module';
 import { PinModule } from './features/pin/pin.module';
 import { PluginChartModule } from './features/plugin/official/chart/plugin-chart.module';
 import { PluginModule } from './features/plugin/plugin.module';
@@ -64,8 +58,6 @@ export const appModules = {
   imports: [
     SentryModule.forRoot(),
     LoggerModule.register(),
-    MailSenderOpenApiModule,
-    MailSenderMergeModule,
     HealthModule,
     NextModule,
     FieldOpenApiModule,
@@ -83,11 +75,9 @@ export const appModules = {
     AuthModule,
     SpaceModule,
     CollaboratorModule,
-    InvitationModule,
     ShareModule,
     ShortLinkModule,
     BaseShareModule,
-    NotificationModule,
     AccessTokenModule,
     ImportOpenApiModule,
     AirtableImportModule,
@@ -100,8 +90,6 @@ export const appModules = {
     OAuthModule,
     TrashModule,
     DashboardModule,
-    CommentOpenApiModule,
-    OrganizationModule,
     AiModule,
     PluginModule,
     PluginPanelModule,

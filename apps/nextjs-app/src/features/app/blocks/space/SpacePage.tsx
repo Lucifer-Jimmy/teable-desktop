@@ -37,8 +37,6 @@ export const SpacePage: FC = () => {
     enabled: isCloud,
   });
 
-  const { disallowSpaceInvitation } = useSetting();
-
   const subscriptionMap = useMemo(() => {
     if (subscriptionList == null) return {};
     return keyBy(subscriptionList, 'spaceId');
@@ -94,7 +92,6 @@ export const SpacePage: FC = () => {
             space={space}
             bases={baseList?.filter(({ spaceId }) => spaceId === space.id)}
             subscription={subscriptionMap[space.id]}
-            disallowSpaceInvitation={disallowSpaceInvitation}
           />
         ))}
       </div>

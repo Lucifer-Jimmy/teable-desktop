@@ -33,7 +33,6 @@ import type { I18nPath, I18nTranslations } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { AuditScope } from '../../audit/audit-scope';
-import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { classifyImportError, formatClassifiedError } from './import-error-classifier';
 import type { ITranslateFn } from './import-error-classifier';
@@ -91,7 +90,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly shareDbService: ShareDbService,
-    private readonly notificationService: NotificationService,
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
@@ -145,20 +143,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
       return result;
     } catch (error) {
       const err = error as Error;
-      notification &&
-        this.notificationService.sendImportResultNotify({
-          baseId,
-          tableId: table.id,
-          toUserId: userId,
-          message: {
-            i18nKey: 'common.email.templates.notify.import.table.aborted.message',
-            context: {
-              tableName: table.name,
-              errorMessage: err.message,
-              range: `${range[0]}, ${range[1]}`,
-            },
-          },
-        });
 
       // Always emit on failure so waiters unblock instead of timing out — even when
       // this isn't the lastChunk, since downstream chunks may never run.

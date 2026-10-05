@@ -23,10 +23,7 @@ import { Branding } from './components/Branding';
 import { CanarySettings } from './components/canary';
 import type { IList } from './components/ConfigurationList';
 import { ConfigurationList } from './components/ConfigurationList';
-import { MailConfigDialog } from './components/mail-config/MailConfig';
 
-import { InviteCodeManage } from './components/waitlist/InviteCodeManage';
-import { WaitlistManage } from './components/waitlist/WaitlistManage';
 import { scrollToTarget } from './utils';
 
 export interface ISettingPageProps {
@@ -262,121 +259,11 @@ export const SettingPage = (props: ISettingPageProps) => {
             </div>
           </div>
 
-          {isCloud && (
-            <div className="pb-6">
-              <h2 className="mb-4 text-lg font-medium">{t('waitlist.title')}</h2>
-              <div className="flex flex-col gap-4 rounded-lg border bg-card p-4 shadow-sm">
-                <div className="flex items-center justify-between ">
-                  <div className="space-y-1">
-                    <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
-                    <div className="text-xs text-muted-foreground">
-                      {t('admin.setting.enableWaitlistDescription')}
-                    </div>
-                  </div>
-                  <Switch
-                    id="enable-waitlist"
-                    checked={Boolean(enableWaitlist)}
-                    onCheckedChange={(checked) => void onValueChange('enableWaitlist', checked)}
-                    disabled={isUpdatingSetting}
-                  />
-                </div>
-                {enableWaitlist && (
-                  <>
-                    <div className="flex items-center justify-between ">
-                      <div className="space-y-1">
-                        <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
-                      </div>
-                      <WaitlistManage />
-                    </div>
-
-                    <div className="flex items-center justify-between ">
-                      <div className="space-y-1">
-                        <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
-                      </div>
-                      <InviteCodeManage />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
           {rewardManage}
 
           {canarySettings ?? <CanarySettings setting={setting} />}
 
           {limitSettings}
-
-          {/* email config */}
-          <div className="pb-6" ref={emailRef}>
-            <h2 className="mb-4 text-lg font-medium">{t('email.config')}</h2>
-            <div className="flex w-full flex-col space-y-4">
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
-                <div className="space-y-1">
-                  <Label>{t('email.notify')}</Label>
-                  <div className="text-xs text-muted-foreground">
-                    {setting.notifyMailTransportConfig
-                      ? setting.notifyMailTransportConfig.host
-                      : t('email.customNotifyConfig')}
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  {setting.notifyMailTransportConfig && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        void onValueChange(SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG, null)
-                      }
-                      disabled={isUpdatingSetting}
-                    >
-                      <RotateCcwIcon className="size-4" />
-                    </Button>
-                  )}
-                  <MailConfigDialog
-                    name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
-                    emailConfig={setting.notifyMailTransportConfig ?? undefined}
-                    disabled={isUpdatingSetting}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">
-                <div className="space-y-1">
-                  <Label>{t('email.automation')}</Label>
-                  <div className="text-xs text-muted-foreground">
-                    {setting.automationMailTransportConfig
-                      ? setting.automationMailTransportConfig.host
-                      : t('email.customAutomationConfig')}
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  {setting.automationMailTransportConfig && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        void onValueChange(SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG, null)
-                      }
-                      disabled={isUpdatingSetting}
-                    >
-                      <RotateCcwIcon className="size-4" />
-                    </Button>
-                  )}
-                  <MailConfigDialog
-                    name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
-                    emailConfig={setting.automationMailTransportConfig ?? undefined}
-                    disabled={isUpdatingSetting}
-                  />
-                </div>
-              </div>
-            </div>
-            {!setting.notifyMailTransportConfig && (
-              <div className="pt-2 text-xs text-destructive">
-                {t('admin.configuration.list.email.errorTips')}
-              </div>
-            )}
-          </div>
 
           {/* Branding Settings Section */}
           {instanceUsage?.level === BillingProductLevel.Enterprise && (

@@ -141,7 +141,6 @@ export const getTableServerSideProps = async (
     }),
     (async (): Promise<ITablePageProps['recordServerData']> => {
       if (!recordId) return undefined;
-      if (notifyId) await ssrApi.updateNotificationStatus(notifyId, { isRead: true });
       // The recordId query param is user-controlled (notification links, shared
       // URLs). A garbage or deleted record must not 500 the whole table page —
       // return undefined so the redirect below strips the param instead.

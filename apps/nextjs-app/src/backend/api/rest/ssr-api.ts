@@ -1,12 +1,9 @@
 import type { IFieldVo, IGetFieldsQuery, IRecord, IViewVo } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
 import type {
-  AcceptInvitationLinkRo,
-  AcceptInvitationLinkVo,
   IGetBaseVo,
   IGetDefaultViewIdVo,
   IGetSpaceVo,
-  IUpdateNotifyStatusRo,
   ListSpaceCollaboratorVo,
   ListSpaceUniqueCollaboratorVo,
   ShareViewGetVo,
@@ -47,7 +44,6 @@ import {
   BASE_SHARE_ID_HEADER,
   CREATE_SOURCE_HEADER,
   CREATE_SOURCE_AUTO,
-  ACCEPT_INVITATION_LINK,
   CREATE_BASE,
   GET_BASE,
   GET_BASE_ALL,
@@ -70,7 +66,6 @@ import {
   SHARE_VIEW_GET,
   SPACE_COLLABORATE_LIST,
   SPACE_COLLABORATE_UNIQUE_LIST,
-  UPDATE_NOTIFICATION_STATUS,
   USER_ME,
   GET_BASE_PERMISSION,
   GET_TABLE_PERMISSION,
@@ -285,12 +280,6 @@ export class SsrApi {
       .then(({ data }) => data);
   }
 
-  async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
-    return this.axios
-      .post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo)
-      .then(({ data }) => data);
-  }
-
   async getShareView(shareId: string) {
     return this.axios
       .get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }))
@@ -300,12 +289,6 @@ export class SsrApi {
   async getBaseShare(shareId: string) {
     return this.axios
       .get<IGetBaseShareVo>(urlBuilder(GET_BASE_SHARE, { shareId }))
-      .then(({ data }) => data);
-  }
-
-  async updateNotificationStatus(notificationId: string, data: IUpdateNotifyStatusRo) {
-    return this.axios
-      .patch<void>(urlBuilder(UPDATE_NOTIFICATION_STATUS, { notificationId }), data)
       .then(({ data }) => data);
   }
 

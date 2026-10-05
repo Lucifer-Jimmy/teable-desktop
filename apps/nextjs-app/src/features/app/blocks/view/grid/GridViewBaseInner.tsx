@@ -40,7 +40,6 @@ import {
   useGridColumnStatistics,
   useGridColumnOrder,
   useGridAsyncRecords,
-  useCommentCountMap,
   useGridIcons,
   useGridTooltipStore,
   useUserInfoPopoverStore,
@@ -311,8 +310,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
 
   const isSelectionLoaded = useIsSelectionLoaded();
-
-  const commentCountMap = useCommentCountMap(recordsQuery);
 
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
@@ -1692,7 +1689,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         freezeColumnCount={frozenColumnCount}
         columnStatistics={columnStatistics}
         columns={columns}
-        commentCountMap={commentCountMap}
         customIcons={customIcons}
         rowControls={rowControls}
         collapsedGroupIds={collapsedGroupIds}
@@ -1801,7 +1797,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
               draggable={DraggableType.None}
               selectable={SelectableType.Cell}
               columns={columns}
-              commentCountMap={commentCountMap}
               columnHeaderHeight={0}
               freezeColumnCount={frozenColumnCount}
               customIcons={customIcons}
@@ -1837,7 +1832,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             selectable={SelectableType.Cell}
             columns={columns}
             columnHeaderHeight={0}
-            commentCountMap={commentCountMap}
             freezeColumnCount={frozenColumnCount}
             customIcons={customIcons}
             getCellContent={getPresortCellContent}

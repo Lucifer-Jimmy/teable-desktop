@@ -1,12 +1,6 @@
 import { History, ArrowUp, ArrowDown, Link, MessageSquare, MessageSquareDot } from '@teable/icons';
 import { useGridViewStore } from '@teable/sdk/components';
-import {
-  useBaseId,
-  useCommentPermission,
-  useTableId,
-  useTablePermission,
-  useView,
-} from '@teable/sdk/hooks';
+import { useBaseId, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import {
   cn,
   Command,
@@ -166,8 +160,6 @@ const buildCollaborationMenuItems = ({
   tableId,
   isMultipleSelected,
   canUpdate,
-  commentReadable,
-  commentWritable,
   chatEnabled,
   recordMenu,
 }: {
@@ -175,8 +167,6 @@ const buildCollaborationMenuItems = ({
   tableId?: string;
   isMultipleSelected: boolean;
   canUpdate: boolean;
-  commentReadable: boolean;
-  commentWritable: boolean;
   chatEnabled: boolean;
   recordMenu: RecordMenuState;
 }): IMenuItemProps<MenuItemType>[] => [
@@ -188,18 +178,6 @@ const buildCollaborationMenuItems = ({
     onClick: () => {
       if (tableId && recordMenu?.viewRecordHistory) {
         void recordMenu.viewRecordHistory();
-      }
-    },
-  },
-  {
-    type: MenuItemType.AddComment,
-    // read-only collaborators still get the thread, just not the composer
-    name: commentWritable ? t('sdk:expandRecord.addRecordComment') : t('sdk:comment.title'),
-    icon: <MessageSquare className={iconClassName} />,
-    hidden: isMultipleSelected || !commentReadable,
-    onClick: () => {
-      if (tableId && recordMenu?.addRecordComment) {
-        void recordMenu.addRecordComment();
       }
     },
   },
@@ -357,7 +335,6 @@ export const RecordMenu = () => {
   const view = useView();
   const viewId = view?.id;
   const permission = useTablePermission();
-  const { commentReadable, commentWritable } = useCommentPermission();
   const recordMenuRef = useRef<HTMLDivElement>(null);
   const { enable: aiEnable } = useAI();
   const usage = useBaseUsage({ disabled: !baseId });
@@ -427,8 +404,6 @@ export const RecordMenu = () => {
       tableId,
       isMultipleSelected: Boolean(isMultipleSelected),
       canUpdate,
-      commentReadable,
-      commentWritable,
       chatEnabled,
       recordMenu,
     }),

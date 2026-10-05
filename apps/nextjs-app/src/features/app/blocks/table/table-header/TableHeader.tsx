@@ -1,4 +1,4 @@
-import { Copy, HelpCircle, MoreHorizontal, UserPlus } from '@teable/icons';
+import { Copy, HelpCircle, MoreHorizontal } from '@teable/icons';
 import { BaseNodeResourceType } from '@teable/openapi';
 import {
   useBase,
@@ -27,7 +27,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useEffect, useState } from 'react';
-import { ShareBasePopover } from '@/features/app/components/collaborator/share/ShareBasePopover';
 import { PublicOperateButton } from '@/features/app/components/PublicOperateButton';
 import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
@@ -77,22 +76,6 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
         </SheetHeader>
         <div className="pb-safe flex flex-col">
           <Collaborators className="flex border-b p-3" />
-          <ShareBasePopover
-            base={{
-              name: base.name,
-              role: base.role,
-              id: base.id,
-              enabledAuthority: base.enabledAuthority,
-            }}
-          >
-            <Button
-              variant="ghost"
-              className="flex w-full items-center justify-start gap-3 border-b p-3"
-            >
-              <UserPlus className="size-4" />
-              <span>{t('space:action.invite')}</span>
-            </Button>
-          </ShareBasePopover>
           <Button
             asChild
             variant="ghost"
@@ -128,18 +111,6 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
       <PopoverContent side="bottom" align="start" className="w-40 p-0">
         <div className="flex flex-col">
           <Collaborators className="flex p-2" />
-          <ShareBasePopover
-            base={{
-              name: base.name,
-              role: base.role,
-              id: base.id,
-              enabledAuthority: base.enabledAuthority,
-            }}
-          >
-            <Button variant="ghost" size="xs" className="flex justify-start">
-              <UserPlus className="size-4" /> {t('space:action.invite')}
-            </Button>
-          </ShareBasePopover>
           <Button asChild variant="ghost" size="xs" className="flex justify-start">
             <a href={t('help.mainLink')} title={t('help.title')} target="_blank" rel="noreferrer">
               <HelpCircle className="size-4" /> {t('help.title')}
@@ -168,19 +139,6 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
       <div className={cn('gap-2 md:gap-3', isTouchDevice ? 'hidden @md/view-header:flex' : 'flex')}>
         {isHydrated && <Collaborators className="flex" />}
         <div className="flex items-center gap-1">
-          <ShareBasePopover
-            base={{
-              name: base.name,
-              role: base.role,
-              id: base.id,
-              enabledAuthority: base.enabledAuthority,
-            }}
-          >
-            <Button variant="default" className="me-1 px-2 @md/view-header:px-3" size="sm">
-              <UserPlus className="size-4" />
-              <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
-            </Button>
-          </ShareBasePopover>
           <Button asChild variant="ghost" size="icon-xs">
             <Link
               href={t('help.mainLink')}

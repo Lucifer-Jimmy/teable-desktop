@@ -1,8 +1,14 @@
 import { BadRequestException, Logger, RequestTimeoutException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MailDeliveryException } from '../features/mail-sender/mail-delivery-error';
 import { GlobalExceptionFilter } from './global-exception.filter';
+
+class MailDeliveryException extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MailDeliveryException';
+  }
+}
 
 const { activeSpan, runtimeErrorCounter, sentryScope, captureException, withScope } = vi.hoisted(
   () => {

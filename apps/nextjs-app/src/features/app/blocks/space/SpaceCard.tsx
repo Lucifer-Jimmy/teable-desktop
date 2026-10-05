@@ -16,7 +16,6 @@ import { useTranslation } from 'next-i18next';
 import { type FC, useEffect, useMemo, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
-import { InviteSpacePopover } from '../../components/collaborator/space/InviteSpacePopover';
 import { uniqueCollaboratorToSpaceItem } from '../../components/collaborator-manage/utils';
 import { CollaboratorAvatars } from '../../components/space/CollaboratorAvatars';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
@@ -30,10 +29,9 @@ interface ISpaceCard {
   space: IGetSpaceVo;
   bases?: IGetBaseVo[];
   subscription?: ISubscriptionSummaryVo;
-  disallowSpaceInvitation?: boolean | null;
 }
 export const SpaceCard: FC<ISpaceCard> = (props) => {
-  const { space, bases, subscription, disallowSpaceInvitation } = props;
+  const { space, bases, subscription } = props;
   const router = useRouter();
   const contentDir = useContentDir();
   const isCloud = useIsCloud();
@@ -132,7 +130,6 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             buttonSize="xs"
             space={space}
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
-            disallowSpaceInvitation={disallowSpaceInvitation}
             onDelete={() => deleteSpaceMutator(space.id)}
             onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
@@ -149,11 +146,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
         )}
 
         {collaborators.length > 0 && (
-          <InviteSpacePopover space={space}>
-            <div className="cursor-pointer">
-              <CollaboratorAvatars collaborators={collaborators} maxDisplay={15} />
-            </div>
-          </InviteSpacePopover>
+          <CollaboratorAvatars collaborators={collaborators} maxDisplay={15} />
         )}
       </CardContent>
     </Card>

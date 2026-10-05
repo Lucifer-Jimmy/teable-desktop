@@ -40,7 +40,6 @@ import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import { NotificationService } from '../notification/notification.service';
 import { createViewVoByRaw } from '../view/model/factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { isCrossSpaceReferenceAllowed } from './cross-space-detection.util';
@@ -78,7 +77,6 @@ export class BaseExportService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly notificationService: NotificationService,
     private readonly eventEmitterService: EventEmitterService,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -1741,11 +1739,6 @@ export class BaseExportService {
       previewUrl: result?.previewUrl,
       attachment: result?.attachment,
       errorMessage: result?.errorMessage,
-    });
-    await this.notificationService.sendExportBaseResultNotify({
-      baseId: baseId,
-      toUserId: userId,
-      message: message,
     });
   }
 }

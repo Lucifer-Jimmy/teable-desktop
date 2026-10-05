@@ -6,7 +6,6 @@ import { LoggerModule } from '../../logger/logger.module';
 import { ShareDbModule } from '../../share-db/share-db.module';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
 import { CalculationModule } from '../calculation/calculation.module';
-import { NotificationModule } from '../notification/notification.module';
 import { RecordModule } from '../record/record.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
@@ -21,10 +20,6 @@ import { ComputedOutboxWorkerConcurrencyService } from './computed-outbox-trigge
 import { TableQueryObservationRuntimeService } from './table-query-observation-runtime.service';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
-import {
-  V2CollaboratorNotificationDispatcher,
-  V2CollaboratorNotificationService,
-} from './v2-collaborator-notification.service';
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2FieldDeleteCompatService } from './v2-field-delete-compat.service';
@@ -116,7 +111,6 @@ const toErrorMessage = (body: unknown): string => {
     AttachmentsStorageModule,
     CalculationModule,
     ShareDbModule,
-    NotificationModule,
     RecordModule,
     ViewModule,
     SpaceDataDbMigrationGuardModule,
@@ -130,8 +124,6 @@ const toErrorMessage = (body: unknown): string => {
     V2ExecutionContextFactory,
     V2ActionTriggerService,
     V2BaseNodeCompatService,
-    V2CollaboratorNotificationDispatcher,
-    V2CollaboratorNotificationService,
     V2UserRenamePropagationService,
     V2FieldDeleteCompatService,
     V2RecordHistoryService,

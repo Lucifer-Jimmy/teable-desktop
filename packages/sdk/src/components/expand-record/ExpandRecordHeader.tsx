@@ -19,9 +19,8 @@ import {
 import { CopyPlus, Trash } from 'lucide-react';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useCommentPermission, useIsMobile, useTablePermission } from '../../hooks';
+import { useIsMobile, useTablePermission } from '../../hooks';
 import { useContentDir } from '../../hooks/use-content-dir';
-import { useRecordCommentCount } from '../comment/hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
@@ -73,8 +72,6 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
   const canDelete = Boolean(permission['record|delete']);
-  // Reading comments follows record|read; record|comment only disables the composer.
-  const { commentReadable } = useCommentPermission();
   const canDuplicate = Boolean(permission['record|create']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
@@ -82,7 +79,6 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const isMobile = useIsMobile();
   const showTitle = width > MIN_TITLE_WIDTH;
   const showOperator = width > MIN_OPERATOR_WIDTH;
-  const recordCommentCount = useRecordCommentCount(tableId, recordId, commentReadable);
 
   return (
     <div
@@ -175,24 +171,6 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                 onClick={onRecordHistoryToggle}
               >
                 <History className="size-4 shrink-0" />
-              </Button>
-            </TooltipWrap>
-          )}
-
-          {commentReadable && (
-            <TooltipWrap description={t('comment.title')}>
-              <Button
-                size={'icon-xs'}
-                onClick={onCommentToggle}
-                variant={commentVisible ? 'secondary' : 'ghost'}
-                className="relative"
-              >
-                <MessageSquare className="size-4 shrink-0" />
-                {recordCommentCount ? (
-                  <div className="absolute start-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
-                    {recordCommentCount > 99 ? '99+' : recordCommentCount}
-                  </div>
-                ) : null}
               </Button>
             </TooltipWrap>
           )}

@@ -13,7 +13,6 @@ import { BaseConfig, type IBaseConfig } from '../../../configs/base.config';
 import type { I18nPath } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
-import { NotificationService } from '../../notification/notification.service';
 import {
   getImportResultManifestKey,
   IMPORT_RESULT_MANIFEST_TTL_SECONDS,
@@ -44,7 +43,6 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
   constructor(
     @InjectQueue(TABLE_IMPORT_RESULT_QUEUE) public readonly queue: Queue<IImportResultJobData>,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    private readonly notificationService: NotificationService,
     private readonly cacheService: CacheService,
     @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {
@@ -71,36 +69,10 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
       }
 
       if (manifest.failedCount === 0 && manifest.successCount > 0) {
-        this.notificationService.sendImportResultNotify({
-          baseId,
-          tableId: table.id,
-          toUserId: userId,
-          message: sourceColumnMap
-            ? {
-                i18nKey: 'common.email.templates.notify.import.table.success.inplace',
-                context: { tableName: table.name },
-              }
-            : {
-                i18nKey: 'common.email.templates.notify.import.table.success.message',
-                context: { tableName: table.name },
-              },
-        });
         return;
       }
 
       if (manifest.successCount + manifest.failedCount === 0) {
-        this.notificationService.sendImportResultNotify({
-          baseId,
-          tableId: table.id,
-          toUserId: userId,
-          message: {
-            i18nKey:
-              'common.email.templates.notify.import.table.noRecordsProcessed.message' as I18nPath,
-            context: {
-              tableName: table.name,
-            },
-          },
-        });
         return;
       }
 
@@ -124,40 +96,9 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
             );
           });
       }
-
-      const message = this.buildFailureNotification(table.name, manifest, errorReportUrl);
-      this.notificationService.sendImportResultNotify({
-        baseId,
-        tableId: table.id,
-        toUserId: userId,
-        message,
-      });
     } finally {
       await this.cleanupImportDir(jobId);
     }
-  }
-
-  private buildFailureNotification(
-    tableName: string,
-    manifest: IImportResultManifest,
-    errorReportUrl?: string
-  ): { i18nKey: I18nPath; context: Record<string, string> } {
-    const hasReport = !!errorReportUrl;
-    const suffix = hasReport ? 'message' : 'messageNoReport';
-    const base = manifest.successCount === 0 ? 'allFailed' : 'partialSuccess';
-    const i18nKey = `common.email.templates.notify.import.table.${base}.${suffix}` as I18nPath;
-
-    const context: Record<string, string> = {
-      tableName,
-      failedCount: String(manifest.failedCount),
-    };
-    if (manifest.successCount > 0) {
-      context.successCount = String(manifest.successCount);
-    }
-    if (hasReport) {
-      context.errorReportUrl = errorReportUrl!;
-    }
-    return { i18nKey, context };
   }
 
   private async uploadMergedErrorReport(

@@ -1,5 +1,4 @@
 const path = require('path');
-const CopyPlugin = require('copy-webpack-plugin');
 const glob = require('glob');
 
 module.exports = function (options) {
@@ -21,10 +20,6 @@ module.exports = function (options) {
       path: path.join(__dirname, 'dist'),
       filename: '[name].js',
     },
-    plugins: [
-      new CopyPlugin({
-        patterns: [{ from: 'src/features/mail-sender/templates', to: 'templates' }],
-      }),
-    ],
+    plugins: [],
   };
 };

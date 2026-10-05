@@ -21,10 +21,6 @@ import {
   type IDataDbConnectionSummaryVo,
   type IDataDbMigrationJobStatusVo,
   type IDataDbPreflightVo,
-  type EmailInvitationVo,
-  type ListSpaceInvitationLinkVo,
-  type CreateSpaceInvitationLinkVo,
-  type UpdateSpaceInvitationLinkVo,
   type ListSpaceCollaboratorVo,
   type IGetBaseAllVo,
   type ITestLLMVo,
@@ -39,12 +35,6 @@ import {
   spaceDataDbSummaryQuerySchema,
   updateSpaceRoSchema,
   IUpdateSpaceRo,
-  emailSpaceInvitationRoSchema,
-  updateSpaceInvitationLinkRoSchema,
-  CreateSpaceInvitationLinkRo,
-  EmailSpaceInvitationRo,
-  UpdateSpaceInvitationLinkRo,
-  createSpaceInvitationLinkRoSchema,
   updateSpaceCollaborateRoSchema,
   UpdateSpaceCollaborateRo,
   CollaboratorType,
@@ -74,7 +64,6 @@ import { avatarUploadInterceptorOptions } from '../../utils/avatar';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
-import { InvitationService } from '../invitation/invitation.service';
 import { LastVisitService } from '../user/last-visit/last-visit.service';
 import { DataDbBindingService } from './data-db-binding.service';
 import { DataDbPreflightService } from './data-db-preflight.service';
@@ -96,7 +85,6 @@ const rejectSpaceDataDbMigrationFromSpaceApi = () => {
 export class SpaceController {
   constructor(
     protected readonly spaceService: SpaceService,
-    protected readonly invitationService: InvitationService,
     protected readonly collaboratorService: CollaboratorService,
     protected readonly dataDbPreflightService: DataDbPreflightService,
     protected readonly dataDbBindingService: DataDbBindingService,
@@ -242,33 +230,6 @@ export class SpaceController {
     return null;
   }
 
-  @Permissions('space|invite_link')
-  @Post(':spaceId/invitation/link')
-  async createInvitationLink(
-    @Param('spaceId') spaceId: string,
-    @Body(new ZodValidationPipe(createSpaceInvitationLinkRoSchema))
-    spaceInvitationLinkRo: CreateSpaceInvitationLinkRo
-  ): Promise<CreateSpaceInvitationLinkVo> {
-    return this.invitationService.generateInvitationLink({
-      resourceId: spaceId,
-      resourceType: CollaboratorType.Space,
-      role: spaceInvitationLinkRo.role,
-    });
-  }
-
-  @Permissions('space|invite_link')
-  @Delete(':spaceId/invitation/link/:invitationId')
-  async deleteInvitationLink(
-    @Param('spaceId') spaceId: string,
-    @Param('invitationId') invitationId: string
-  ): Promise<void> {
-    return this.invitationService.deleteInvitationLink({
-      resourceId: spaceId,
-      resourceType: CollaboratorType.Space,
-      invitationId,
-    });
-  }
-
   @Permissions('base|read')
   @Get(':spaceId/base')
   async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseAllVo> {
@@ -300,40 +261,6 @@ export class SpaceController {
     @Query(new ZodValidationPipe(spaceSearchRoSchema)) query: ISpaceSearchRo
   ): Promise<ISpaceSearchVo> {
     return await this.spaceService.search(spaceId, query);
-  }
-
-  @Permissions('space|invite_link')
-  @Patch(':spaceId/invitation/link/:invitationId')
-  async updateInvitationLink(
-    @Param('spaceId') spaceId: string,
-    @Param('invitationId') invitationId: string,
-    @Body(new ZodValidationPipe(updateSpaceInvitationLinkRoSchema))
-    updateSpaceInvitationLinkRo: UpdateSpaceInvitationLinkRo
-  ): Promise<UpdateSpaceInvitationLinkVo> {
-    return this.invitationService.updateInvitationLink({
-      invitationId,
-      resourceId: spaceId,
-      resourceType: CollaboratorType.Space,
-      role: updateSpaceInvitationLinkRo.role,
-    });
-  }
-
-  @Permissions('space|invite_link')
-  @Get(':spaceId/invitation/link')
-  async listInvitationLinkBySpace(
-    @Param('spaceId') spaceId: string
-  ): Promise<ListSpaceInvitationLinkVo> {
-    return this.invitationService.getInvitationLink(spaceId, CollaboratorType.Space);
-  }
-
-  @Permissions('space|invite_email')
-  @Post(':spaceId/invitation/email')
-  async emailInvitation(
-    @Param('spaceId') spaceId: string,
-    @Body(new ZodValidationPipe(emailSpaceInvitationRoSchema))
-    emailSpaceInvitationRo: EmailSpaceInvitationRo
-  ): Promise<EmailInvitationVo> {
-    return this.invitationService.emailInvitationBySpace(spaceId, emailSpaceInvitationRo);
   }
 
   @Permissions('space|read')

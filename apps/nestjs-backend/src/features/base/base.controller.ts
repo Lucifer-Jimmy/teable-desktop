@@ -25,14 +25,8 @@ import {
   ICreateBaseFromTemplateRo,
   updateOrderRoSchema,
   IUpdateOrderRo,
-  createBaseInvitationLinkRoSchema,
-  CreateBaseInvitationLinkRo,
-  updateBaseInvitationLinkRoSchema,
-  emailBaseInvitationRoSchema,
   updateBaseCollaborateRoSchema,
-  EmailBaseInvitationRo,
   UpdateBaseCollaborateRo,
-  UpdateBaseInvitationLinkRo,
   CollaboratorType,
   listBaseCollaboratorRoSchema,
   ListBaseCollaboratorRo,
@@ -50,8 +44,6 @@ import {
   IPublishBaseRo,
 } from '@teable/openapi';
 import type {
-  CreateBaseInvitationLinkVo,
-  EmailInvitationVo,
   IBaseDataDbMoveJobStatusVo,
   IBaseErdVo,
   ICreateBaseVo,
@@ -67,8 +59,6 @@ import type {
   IListBaseCollaboratorUserVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
-  ListBaseInvitationLinkVo,
-  UpdateBaseInvitationLinkVo,
   ICreateBaseFromTemplateVo,
 } from '@teable/openapi';
 import { Response as ExpressResponse } from 'express';
@@ -84,7 +74,6 @@ import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { CollaboratorService } from '../collaborator/collaborator.service';
-import { InvitationService } from '../invitation/invitation.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
@@ -101,7 +90,6 @@ export class BaseController {
     private readonly baseImportService: BaseImportService,
     private readonly dbConnectionService: DbConnectionService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly invitationService: InvitationService,
     private readonly baseDuplicateService: BaseDuplicateService,
     private readonly cls: ClsService<IClsStore>
   ) {}
@@ -374,75 +362,6 @@ export class BaseController {
   @AllowAnonymous(AllowAnonymousType.PUBLIC)
   async getPermission(): Promise<IGetBasePermissionVo> {
     return await this.baseService.getPermission();
-  }
-
-  @Permissions('base|invite_link')
-  @Post(':baseId/invitation/link')
-  async createInvitationLink(
-    @Param('baseId') baseId: string,
-    @Body(new ZodValidationPipe(createBaseInvitationLinkRoSchema))
-    baseInvitationLinkRo: CreateBaseInvitationLinkRo
-  ): Promise<CreateBaseInvitationLinkVo> {
-    const res = await this.invitationService.generateInvitationLink({
-      resourceId: baseId,
-      resourceType: CollaboratorType.Base,
-      role: baseInvitationLinkRo.role,
-    });
-    return {
-      ...res,
-      role: res.role as IBaseRole,
-    };
-  }
-
-  @Permissions('base|invite_link')
-  @Delete(':baseId/invitation/link/:invitationId')
-  async deleteInvitationLink(
-    @Param('baseId') baseId: string,
-    @Param('invitationId') invitationId: string
-  ): Promise<void> {
-    return this.invitationService.deleteInvitationLink({
-      resourceId: baseId,
-      resourceType: CollaboratorType.Base,
-      invitationId,
-    });
-  }
-
-  @Permissions('base|invite_link')
-  @Patch(':baseId/invitation/link/:invitationId')
-  async updateInvitationLink(
-    @Param('baseId') baseId: string,
-    @Param('invitationId') invitationId: string,
-    @Body(new ZodValidationPipe(updateBaseInvitationLinkRoSchema))
-    updateSpaceInvitationLinkRo: UpdateBaseInvitationLinkRo
-  ): Promise<UpdateBaseInvitationLinkVo> {
-    const res = await this.invitationService.updateInvitationLink({
-      resourceId: baseId,
-      resourceType: CollaboratorType.Base,
-      invitationId,
-      role: updateSpaceInvitationLinkRo.role,
-    });
-
-    return {
-      ...res,
-      role: res.role as IBaseRole,
-    };
-  }
-
-  @Permissions('base|invite_link')
-  @Get(':baseId/invitation/link')
-  async listInvitationLink(@Param('baseId') baseId: string): Promise<ListBaseInvitationLinkVo> {
-    const res = this.invitationService.getInvitationLink(baseId, CollaboratorType.Base);
-    return res as unknown as ListBaseInvitationLinkVo;
-  }
-
-  @Permissions('base|invite_email')
-  @Post(':baseId/invitation/email')
-  async emailInvitation(
-    @Param('baseId') baseId: string,
-    @Body(new ZodValidationPipe(emailBaseInvitationRoSchema))
-    emailBaseInvitationRo: EmailBaseInvitationRo
-  ): Promise<EmailInvitationVo> {
-    return this.invitationService.emailInvitationByBase(baseId, emailBaseInvitationRo);
   }
 
   @Patch(':baseId/collaborators')

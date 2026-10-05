@@ -3,7 +3,6 @@ import { ShareDbModule } from '../../../share-db/share-db.module';
 import { BaseNodeModule } from '../../base-node/base-node.module';
 import { CanaryModule } from '../../canary/canary.module';
 import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
-import { NotificationModule } from '../../notification/notification.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { SpaceModule } from '../../space/space.module';
 import { TableOpenApiModule } from '../../table/open-api/table-open-api.module';
@@ -18,7 +17,6 @@ import { ImportOpenApiService } from './import-open-api.service';
   imports: [
     TableOpenApiModule,
     RecordOpenApiModule,
-    NotificationModule,
     ShareDbModule,
     ImportCsvChunkModule,
     FieldOpenApiModule,

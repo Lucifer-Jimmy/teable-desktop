@@ -3,7 +3,6 @@ import { MulterModule } from '@nestjs/platform-express';
 import multer from 'multer';
 import { AttachmentsCropModule } from '../../attachments/attachments-crop.module';
 import { StorageModule } from '../../attachments/plugins/storage.module';
-import { NotificationModule } from '../../notification/notification.module';
 import { AdminOpenApiController } from './admin-open-api.controller';
 import { AdminOpenApiService } from './admin-open-api.service';
 
@@ -14,7 +13,6 @@ import { AdminOpenApiService } from './admin-open-api.service';
       storage: multer.diskStorage({}),
     }),
     StorageModule,
-    NotificationModule,
   ],
   controllers: [AdminOpenApiController],
   exports: [AdminOpenApiService],

@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
-import { MoreHorizontal, Plus, UserPlus } from '@teable/icons';
+import { MoreHorizontal, Plus } from '@teable/icons';
 import { createBase, type IGetSpaceVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
 import type { ButtonProps } from '@teable/ui-lib';
@@ -19,7 +19,6 @@ import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { ImportBaseDialog } from '../../blocks/space/component/upload-panel';
 import { useBaseList } from '../../blocks/space/useBaseList';
-import { InviteSpacePopover } from '../collaborator/space/InviteSpacePopover';
 import { CreateBaseDialog, useCreateBaseChooserEnabled } from './create-base';
 
 interface ActionBarProps {
@@ -27,22 +26,13 @@ interface ActionBarProps {
   invQueryFilters: string[];
   className?: string;
   buttonSize?: ButtonProps['size'];
-  disallowSpaceInvitation?: boolean | null;
   onRename?: () => void;
   onDelete?: () => void;
   onPermanentDelete?: () => void;
 }
 
 export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
-  const {
-    space,
-    className,
-    buttonSize = 'default',
-    disallowSpaceInvitation,
-    onRename,
-    onDelete,
-    onPermanentDelete,
-  } = props;
+  const { space, className, buttonSize = 'default', onRename, onDelete, onPermanentDelete } = props;
   const [importBaseOpen, setImportBaseOpen] = React.useState(false);
   const [createBaseOpen, setCreateBaseOpen] = React.useState(false);
 
@@ -109,19 +99,6 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
           )}
         </Tooltip>
       </TooltipProvider>
-      {!disallowSpaceInvitation && (
-        <InviteSpacePopover space={space}>
-          {isMobile ? (
-            <Button variant="outline" size="icon-xs">
-              <UserPlus className="size-4" />
-            </Button>
-          ) : (
-            <Button variant={'outline'} size={buttonSize}>
-              <UserPlus className="size-4" /> {t('space:action.invite')}
-            </Button>
-          )}
-        </InviteSpacePopover>
-      )}
 
       <SpaceActionTrigger
         space={space}

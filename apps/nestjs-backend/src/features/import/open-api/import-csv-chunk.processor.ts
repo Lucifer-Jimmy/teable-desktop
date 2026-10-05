@@ -17,7 +17,6 @@ import { CacheService } from '../../../cache/cache.service';
 import type { I18nPath, I18nTranslations } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
-import { NotificationService } from '../../notification/notification.service';
 import { ImportMetricsService } from '../metrics/import-metrics.service';
 import { ImportTracingService } from '../metrics/import-tracing.service';
 import type { IChunkImportResult } from './import-csv.processor';
@@ -103,7 +102,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   private importQueueEvents?: QueueEvents;
 
   constructor(
-    private readonly notificationService: NotificationService,
     private readonly importTableCsvQueueProcessor: ImportTableCsvQueueProcessor,
     private readonly importTableResultQueueProcessor: ImportTableResultQueueProcessor,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
@@ -154,22 +152,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   private createTranslateFn(lang?: string): ITranslateFn {
     return (key: I18nPath, args?: Record<string, string>) =>
       this.i18n.t(key, { args, lang: lang ?? 'en' }) as string;
-  }
-
-  private getImportErrorNotification(
-    tableName: string,
-    errorMessage: string
-  ): ILocalization<I18nPath> {
-    if (errorMessage === OVER_PLAN_ROW_COUNT_ERROR_MESSAGE) {
-      return {
-        i18nKey: 'common.email.templates.notify.import.table.planLimitExceeded.message' as I18nPath,
-        context: { tableName },
-      };
-    }
-    return {
-      i18nKey: 'common.email.templates.notify.import.table.failed.message',
-      context: { tableName, errorMessage },
-    };
   }
 
   public async process(job: Job<ITableImportChunkJob>) {
@@ -238,29 +220,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         operationType,
         errorType: error instanceof ImportError ? 'import_error' : 'unknown',
       });
-      let finalMessage: string | ILocalization<I18nPath> = '';
-      if (error instanceof ImportError && error.range) {
-        const range = error.range;
-        finalMessage = {
-          i18nKey: 'common.email.templates.notify.import.table.aborted.message',
-          context: {
-            tableName: table.name,
-            errorMessage: error.message,
-            range: `${range[0]}, ${range[1]}`,
-          },
-        };
-      } else if (error instanceof Error) {
-        finalMessage = this.getImportErrorNotification(table.name, error.message);
-      }
-
-      if (notification && finalMessage) {
-        this.notificationService.sendImportResultNotify({
-          baseId,
-          tableId: table.id,
-          toUserId: userId,
-          message: finalMessage,
-        });
-      }
 
       this.logger.error('import csv chunk error: ', error);
       // throw to @OnWorkerEvent('error')

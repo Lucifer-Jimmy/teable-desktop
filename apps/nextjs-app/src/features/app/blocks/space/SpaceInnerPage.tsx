@@ -60,8 +60,6 @@ export const SpaceInnerPage: React.FC = () => {
 
   const bases = useBaseList();
 
-  const { disallowSpaceInvitation } = useSetting();
-
   const basesInSpace = useMemo(() => {
     return bases?.filter((base) => base.spaceId === spaceId);
   }, [bases, spaceId]);
@@ -242,7 +240,6 @@ export const SpaceInnerPage: React.FC = () => {
             space={space}
             buttonSize={'xs'}
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
-            disallowSpaceInvitation={disallowSpaceInvitation}
             onDelete={() => deleteSpaceMutator(space.id)}
             onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}

@@ -58,7 +58,6 @@ import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
 import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init';
-import { verifyTransport } from '../../mail-sender/mail-helpers';
 import { SettingService } from '../setting.service';
 
 const unknownErrorMsg = 'unknown error';
@@ -869,14 +868,6 @@ export class SettingOpenApiService {
         response: message,
       };
     }
-  }
-
-  async setMailTransportConfig(setMailTransportConfigRo: ISetSettingMailTransportConfigRo) {
-    const { name, transportConfig } = setMailTransportConfigRo;
-    await verifyTransport(transportConfig);
-    await this.settingService.updateSetting({
-      [name]: transportConfig,
-    });
   }
 
   /**

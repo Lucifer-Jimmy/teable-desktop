@@ -31,7 +31,6 @@ import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
-import { NotificationService } from '../notification/notification.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
@@ -159,7 +158,6 @@ export class BaseExportV2Service {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly cls: ClsService<IClsStore>,
-    private readonly notificationService: NotificationService,
     private readonly eventEmitterService: EventEmitterService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @StorageConfig() private readonly storageConfig: IStorageConfig
@@ -992,11 +990,6 @@ export class BaseExportV2Service {
       previewUrl: result?.previewUrl,
       attachment: result?.attachment,
       errorMessage: result?.errorMessage,
-    });
-    await this.notificationService.sendExportBaseResultNotify({
-      baseId,
-      toUserId: userId,
-      message,
     });
   }
 }
