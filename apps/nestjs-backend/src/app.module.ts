@@ -22,6 +22,7 @@ import { CollaboratorModule } from './features/collaborator/collaborator.module'
 import { DashboardModule } from './features/dashboard/dashboard.module';
 import { ExportOpenApiModule } from './features/export/open-api/export-open-api.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
+import { AppFeatureModule } from './features/app/app.module';
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
 import { IntegrityModule } from './features/integrity/integrity.module';
@@ -57,6 +58,7 @@ export const appModules = {
     SentryModule.forRoot(),
     LoggerModule.register(),
     HealthModule,
+    AppFeatureModule,
     NextModule,
     FieldOpenApiModule,
     TemplateOpenApiModule,

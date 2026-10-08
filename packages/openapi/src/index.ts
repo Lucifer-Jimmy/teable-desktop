@@ -51,3 +51,4 @@ export * from './base-node';
 export * from './base-share';
 export * from './types';
 export * from './user-integration';
+export * from './app';

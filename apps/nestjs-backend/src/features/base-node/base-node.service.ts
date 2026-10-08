@@ -392,6 +392,20 @@ export class BaseNodeService {
     });
   }
 
+  protected async getAppResources(baseId: string, ids?: string[]) {
+    return await this.prismaService.app.findMany({
+      where: { baseId, deletedTime: null, id: { in: ids ? ids : undefined } },
+      select: {
+        id: true,
+        name: true,
+        createdBy: true,
+        createdTime: true,
+        lastModifiedBy: true,
+        lastModifiedTime: true,
+      },
+    });
+  }
+
   protected async getFolderResources(baseId: string, ids?: string[]) {
     return await this.prismaService.baseNodeFolder.findMany({
       where: { baseId, id: { in: ids ? ids : undefined } },
@@ -414,6 +428,8 @@ export class BaseNodeService {
         return this.getTableResources(baseId, ids);
       case BaseNodeResourceType.Dashboard:
         return this.getDashboardResources(baseId, ids);
+      case BaseNodeResourceType.App:
+        return this.getAppResources(baseId, ids);
       default:
         throw new CustomHttpException(
           `Invalid resource type ${type}`,
@@ -432,6 +448,7 @@ export class BaseNodeService {
       BaseNodeResourceType.Folder,
       BaseNodeResourceType.Table,
       BaseNodeResourceType.Dashboard,
+      BaseNodeResourceType.App,
     ];
   }
 
@@ -670,6 +687,19 @@ export class BaseNodeService {
         );
         return { id: dashboard.id, name: dashboard.name };
       }
+      case BaseNodeResourceType.App: {
+        const app = await this.prismaService.txClient().app.create({
+          data: {
+            id: `app${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+            baseId,
+            name: ro.name,
+            template: 'dashboard',
+            config: { tableId: '', fieldMapping: {} },
+            createdBy: this.cls.get('user.id'),
+          },
+        });
+        return { id: app.id, name: app.name };
+      }
       default:
         throw new CustomHttpException(
           `Invalid resource type ${resourceType}`,
@@ -891,6 +921,14 @@ export class BaseNodeService {
           await this.dashboardService.renameDashboard(baseId, id, name);
         }
         break;
+      case BaseNodeResourceType.App:
+        if (name) {
+          await this.prismaService.txClient().app.update({
+            where: { id },
+            data: { name, lastModifiedBy: this.cls.get('user.id') },
+          });
+        }
+        break;
       default:
         throw new CustomHttpException(
           `Invalid resource type ${type}`,
@@ -985,6 +1023,12 @@ export class BaseNodeService {
         break;
       case BaseNodeResourceType.Dashboard:
         await this.dashboardService.deleteDashboard(baseId, id);
+        break;
+      case BaseNodeResourceType.App:
+        await this.prismaService.txClient().app.update({
+          where: { id },
+          data: { deletedTime: new Date() },
+        });
         break;
       default:
         throw new CustomHttpException(

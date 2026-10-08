@@ -1276,3 +1276,41 @@ model ShortLink {
   @@index([deletedTime])
   @@map("short_link")
 }
+
+// ============================================================
+// App Builder (新应用) — template-based data visualization apps
+// ============================================================
+
+model App {
+  id               String       @id @default(cuid())
+  baseId           String
+  name             String
+  description      String?
+  template         String
+  config           Json
+  version          Int          @default(0)
+  deletedTime      DateTime?
+  createdTime      DateTime     @default(now())
+  createdBy        String
+  lastModifiedTime DateTime     @updatedAt
+  lastModifiedBy   String?
+  versions         AppVersion[]
+
+  @@index([baseId, deletedTime])
+  @@map("app")
+}
+
+model AppVersion {
+  id          String   @id @default(cuid())
+  appId       String
+  app         App      @relation(fields: [appId], references: [id])
+  version     Int
+  config      Json
+  htmlContent String?  @db.Text
+  description String?
+  createdTime DateTime @default(now())
+  createdBy   String
+
+  @@unique([appId, version])
+  @@map("app_version")
+}
