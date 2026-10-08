@@ -27,7 +27,10 @@ export const dashboardTemplate: IAppTemplate = {
   description: '数据统计仪表盘，支持多种聚合方式和图表类型',
   icon: 'bar-chart-3',
   async render(config: IAppTemplateConfig, ctx: IRenderContext): Promise<string> {
-    const fm = config.fieldMapping as unknown as IDashboardFieldMapping;
+    const fm = (config.fieldMapping ?? {}) as unknown as IDashboardFieldMapping;
+    if (!fm.metrics?.length) {
+      return htmlShell('仪表盘', '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#94a3b8;font-size:14px">请先配置统计指标（点击右上角 ✏️ 配置按钮）</div>');
+    }
     const chartType = fm.chartType ?? 'bar';
     const records = await ctx.getRecords(config.tableId);
 

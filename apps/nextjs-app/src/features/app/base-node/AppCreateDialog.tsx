@@ -71,6 +71,23 @@ export const AppCreateDialog: React.FC<IAppCreateDialogProps> = ({
         defaultMapping.endDate = fields.find((f) => f.type === 'date' && f.name !== defaultMapping.startDate)?.name ?? dateField?.name ?? '';
         const numField = fields.find((f) => f.type === 'number');
         defaultMapping.progress = numField?.name ?? '';
+      } else if (selectedTemplate === 'dashboard') {
+        // Default: count all records + sum of first number field
+        defaultMapping.metrics = [
+          { field: '', agg: 'count', label: '记录总数' },
+        ];
+        const numField = fields.find((f) => f.type === 'number');
+        if (numField) {
+          defaultMapping.metrics.push({ field: numField.name, agg: 'sum', label: numField.name + ' 合计' });
+        }
+        defaultMapping.chartType = 'bar';
+      } else if (selectedTemplate === 'form') {
+        // Default: all text/number/date fields become form inputs
+        defaultMapping.fields = fields
+          .filter((f) => ['singleLineText', 'number', 'date', 'singleSelect'].includes(f.type))
+          .slice(0, 5)
+          .map((f) => ({ field: f.name, label: f.name, required: false, type: f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'singleSelect' ? 'select' : 'text' }));
+        defaultMapping.submitLabel = '提交';
       }
 
       const config = {
