@@ -1,8 +1,9 @@
 import { getUniqName, ViewType } from '@teable/core';
 import { FileCsv, FileExcel, Slack, Table2 } from '@teable/icons';
 import type { ICreateBaseNodeRo } from '@teable/openapi';
-import { BaseNodeResourceType, SUPPORTEDTYPE, UserIntegrationProvider } from '@teable/openapi';
+import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { useBase, useTables } from '@teable/sdk';
+import { AppCreateDialog } from '@/features/app/base-node/AppCreateDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
   const { t } = useTranslation(['table', 'common']);
   const folderId = parentId && parentId !== ROOT_ID ? parentId : undefined;
   const [tableImportdialogVisible, setTableImportdialogVisible] = useState(false);
+  const [appCreateOpen, setAppCreateOpen] = useState(false);
   const [fileType, setFileType] = useState<SUPPORTEDTYPE>(SUPPORTEDTYPE.CSV);
   const importFile = (type: SUPPORTEDTYPE) => {
     setTableImportdialogVisible(true);
@@ -135,6 +137,10 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
           data-attr={`base-create-menu-new-${resourceType}`}
           className="flex cursor-pointer items-center"
           onClick={() => {
+            if (resourceType === BaseNodeResourceType.App) {
+              setAppCreateOpen(true);
+              return;
+            }
             createNode({
               resourceType,
               parentId,
@@ -201,6 +207,14 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
           folderId={folderId}
           open={tableImportdialogVisible}
           onOpenChange={(open) => setTableImportdialogVisible(open)}
+        />
+      )}
+
+      {appCreateOpen && base?.id && (
+        <AppCreateDialog
+          baseId={base.id}
+          open={appCreateOpen}
+          onClose={() => setAppCreateOpen(false)}
         />
       )}
     </div>
