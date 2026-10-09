@@ -17,14 +17,18 @@ export const ganttTemplate: IAppTemplate = {
   async render(config: IAppTemplateConfig, ctx: IRenderContext): Promise<string> {
     const fm = config.fieldMapping as unknown as IGanttFieldMapping;
     const records = await ctx.getRecords(config.tableId);
-    const tasks = records.map((r, i) => ({
-      id: `t${i}`,
-      name: escapeHtml(r[fm.title] ?? `Task ${i + 1}`),
-      start: String(r[fm.startDate] ?? ''),
-      end: String(r[fm.endDate] ?? ''),
-      progress: fm.progress ? Number(r[fm.progress] ?? 0) : 0,
-      assignee: fm.assignee ? escapeHtml(r[fm.assignee] ?? '') : '',
-    }));
+    // tasks without both dates can't be placed on a timeline — Frappe Gantt
+    // renders them as broken/empty bars, so drop them up front
+    const tasks = records
+      .filter((r) => r[fm.startDate] != null && r[fm.endDate] != null)
+      .map((r, i) => ({
+        id: `t${i}`,
+        name: escapeHtml(r[fm.title] ?? `Task ${i + 1}`),
+        start: String(r[fm.startDate]),
+        end: String(r[fm.endDate]),
+        progress: fm.progress ? Number(r[fm.progress] ?? 0) : 0,
+        assignee: fm.assignee ? escapeHtml(r[fm.assignee] ?? '') : '',
+      }));
 
     const tasksJson = JSON.stringify(tasks);
 

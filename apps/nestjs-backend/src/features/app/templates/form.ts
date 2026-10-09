@@ -27,17 +27,32 @@ export const formTemplate: IAppTemplate = {
     const formFields = fm.fields
       .map((f) => {
         const field = fieldMap.get(f.field);
-        const inputType = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text';
         const requiredAttr = f.required ? 'required' : '';
         const label = escapeHtml(f.label || f.field);
 
-        if (f.type === 'select' && f.options?.length) {
-          const opts = f.options
+        // select inputs: prefer the underlying singleSelect field's own choices
+        // (config-level options are rarely populated); fall back to config options
+        const selectChoices =
+          field?.type === 'singleSelect'
+            ? (((field.options as { choices?: Array<{ name: string }> })?.choices ?? [])
+                .map((c) => c.name)
+                .filter(Boolean) as string[])
+            : f.options ?? [];
+
+        if (f.type === 'select' && selectChoices.length) {
+          const opts = selectChoices
             .map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`)
             .join('');
           return `<div class="form-field"><label>${label}${f.required ? '<span class="req">*</span>' : ''}</label><select name="${escapeHtml(f.field)}" ${requiredAttr}><option value="">请选择</option>${opts}</select></div>`;
         }
 
+        // a singleSelect field without resolvable choices must NOT become a
+        // free-text input — arbitrary text would fail record validation
+        if (field?.type === 'singleSelect') {
+          return `<div class="form-field"><label>${label}</label><div class="field-hint">此字段暂无可选项</div></div>`;
+        }
+
+        const inputType = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text';
         return `<div class="form-field"><label>${label}${f.required ? '<span class="req">*</span>' : ''}</label><input type="${inputType}" name="${escapeHtml(f.field)}" ${requiredAttr} placeholder="请输入${label}"></div>`;
       })
       .join('');
@@ -57,6 +72,7 @@ h2{margin-bottom:24px;font-size:20px;color:#1e293b}
 .form-field label{display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px}
 .req{color:#ef4444;margin-left:2px}
 .form-field input,.form-field select{width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;transition:border-color .2s}
+.field-hint{padding:10px 12px;border:1px dashed #e2e8f0;border-radius:8px;font-size:13px;color:#94a3b8}
 .form-field input:focus,.form-field select:focus{border-color:#6366f1}
 .submit-btn{width:100%;padding:12px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s}
 .submit-btn:hover{background:#4f46e5}
@@ -75,7 +91,16 @@ h2{margin-bottom:24px;font-size:20px;color:#1e293b}
     btn.disabled = true; btn.textContent = '提交中...';
     msg.className = 'msg'; msg.textContent = '';
     var data = { records: [{ fields: {} }] };
-    new FormData(form).forEach(function(val, key){ data.records[0].fields[key] = val; });
+    new FormData(form).forEach(function(val, key){
+      var el = form.querySelector('[name="' + key + '"]');
+      var type = el ? el.type : 'text';
+      // FormData values are always strings — cast per input type, and pass
+      // null for empties so the API doesn't reject them as invalid values.
+      if (val === '' && (type === 'number' || type === 'date')) {
+        return;
+      }
+      data.records[0].fields[key] = type === 'number' ? Number(val) : val;
+    });
     fetch('${apiBase}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
