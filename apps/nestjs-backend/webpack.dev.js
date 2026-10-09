@@ -3,6 +3,12 @@ const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const glob = require('glob');
 const nodeExternals = require('webpack-node-externals');
 
+// The checker worker keeps a ~2.3GB TypeScript type graph of the whole
+// monorepo resident (measured 2026-10-09, get-issues-worker.js). Hot
+// reloads only need transpiling — type errors still surface in the IDE
+// and via `pnpm typecheck`. Run `TS_CHECK=true pnpm dev` to re-enable.
+const tsCheckEnabled = process.env.TS_CHECK === 'true';
+
 module.exports = function (options, webpack) {
   const workerFiles = glob.sync(path.join(__dirname, 'src/worker/**.ts'));
   const workerEntries = workerFiles.reduce((acc, file) => {
@@ -22,7 +28,10 @@ module.exports = function (options, webpack) {
       filename: '[name].js',
     },
     mode: 'development',
-    devtool: 'source-map',
+    // full 'source-map' kept ~700MB of map buffers resident in the watcher
+    // (measured 2026-10-09); inline-cheap keeps line-accurate Node stack
+    // traces at a fraction of the cost (no column maps, no disk .map files)
+    devtool: 'inline-cheap-source-map',
     externals: [
       nodeExternals({
         allowlist: ['webpack/hot/poll?100', /^@teable/],
@@ -59,12 +68,16 @@ module.exports = function (options, webpack) {
       // nest default tsconfig path is tsconfig.build.json
       ...options.plugins.filter((plugin) => !(plugin instanceof ForkTsCheckerWebpackPlugin)),
       new webpack.HotModuleReplacementPlugin(),
-      new ForkTsCheckerWebpackPlugin({
-        typescript: {
-          configFile: 'tsconfig.json',
-          memoryLimit: 4096,
-        },
-      }),
+      ...(tsCheckEnabled
+        ? [
+            new ForkTsCheckerWebpackPlugin({
+              typescript: {
+                configFile: 'tsconfig.json',
+                memoryLimit: 4096,
+              },
+            }),
+          ]
+        : []),
     ],
   };
 };
