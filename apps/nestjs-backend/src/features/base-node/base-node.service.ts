@@ -692,9 +692,20 @@ export class BaseNodeService {
           data: {
             id: `app${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
             baseId,
-            name: ro.name,
+            name: ro.name ?? '未命名应用',
             template: 'dashboard',
             config: { tableId: '', fieldMapping: {} },
+            createdBy: this.cls.get('user.id'),
+          },
+        });
+        // keep version history consistent with the wizard-created path
+        // (appService.createApp also snapshots v0)
+        await this.prismaService.txClient().appVersion.create({
+          data: {
+            appId: app.id,
+            version: 0,
+            config: { tableId: '', fieldMapping: {} },
+            description: 'Initial version',
             createdBy: this.cls.get('user.id'),
           },
         });
@@ -849,6 +860,39 @@ export class BaseNodeService {
         );
         return { id: dashboard.id, name: dashboard.name };
       }
+      case BaseNodeResourceType.App: {
+        // the tree context menu offers duplicate for app nodes (AppOperation
+        // gates it on app|create) — copy config + initial version snapshot
+        const source = await this.prismaService.txClient().app.findFirst({
+          where: { id, baseId, deletedTime: null },
+        });
+        if (!source) {
+          throw new CustomHttpException(`App ${id} not found`, HttpErrorCode.NOT_FOUND, {
+            localization: { i18nKey: 'httpErrors.baseNode.notFound' },
+          });
+        }
+        const name = (duplicateRo as { name?: string }).name ?? source.name;
+        const app = await this.prismaService.txClient().app.create({
+          data: {
+            id: `app${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+            baseId,
+            name,
+            template: source.template,
+            config: source.config as object,
+            createdBy: this.cls.get('user.id'),
+          },
+        });
+        await this.prismaService.txClient().appVersion.create({
+          data: {
+            appId: app.id,
+            version: 0,
+            config: source.config as object,
+            description: `Duplicated from ${source.name}`,
+            createdBy: this.cls.get('user.id'),
+          },
+        });
+        return { id: app.id, name: app.name };
+      }
       default:
         throw new CustomHttpException(
           `Invalid resource type ${type}`,
@@ -923,8 +967,10 @@ export class BaseNodeService {
         break;
       case BaseNodeResourceType.App:
         if (name) {
-          await this.prismaService.txClient().app.update({
-            where: { id },
+          // updateMany scopes by baseId — update({where: {id}}) would touch any
+          // app with that id regardless of base
+          await this.prismaService.txClient().app.updateMany({
+            where: { id, baseId },
             data: { name, lastModifiedBy: this.cls.get('user.id') },
           });
         }
@@ -1025,8 +1071,8 @@ export class BaseNodeService {
         await this.dashboardService.deleteDashboard(baseId, id);
         break;
       case BaseNodeResourceType.App:
-        await this.prismaService.txClient().app.update({
-          where: { id },
+        await this.prismaService.txClient().app.updateMany({
+          where: { id, baseId, deletedTime: null },
           data: { deletedTime: new Date() },
         });
         break;
