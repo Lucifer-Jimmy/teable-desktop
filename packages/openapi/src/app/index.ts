@@ -130,8 +130,11 @@ export const RenderAppRoute: RouteConfig = registerRoute({
   tags: ['app'],
 });
 
+// Unlike the axios helpers above, this URL is consumed directly (iframe src /
+// window.open), so it must carry the explicit /api prefix the axios instance
+// would otherwise add.
 export const getAppRenderUrl = (baseId: string, appId: string) =>
-  urlBuilder(RENDER_APP, { baseId, appId });
+  `/api${urlBuilder(RENDER_APP, { baseId, appId })}`;
 
 // ---------- Versions ----------
 export const GET_APP_VERSIONS = '/base/{baseId}/app/{appId}/versions';
