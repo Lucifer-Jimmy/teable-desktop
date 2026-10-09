@@ -117,6 +117,10 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
               baseId: String(baseId),
               resourceType: parsed.resourceType,
               resourceMeta: { name: 'App' },
+              // base layout/sidebar translations — without this a direct load
+              // (or refresh) of an app URL renders raw i18n keys, since SPA
+              // navigation is the only other path that has bundles loaded
+              ...(await ctx.getTranslationsProps()),
             },
           };
         default:
