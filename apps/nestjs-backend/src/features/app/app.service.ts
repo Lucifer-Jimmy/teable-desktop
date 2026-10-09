@@ -2,8 +2,40 @@ import { randomUUID } from 'crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { IAppVo, IAppVersionVo, ICreateAppRo, IUpdateAppRo } from '@teable/openapi';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IRenderContext } from './templates';
+import type { IRenderContext, IRenderOptions } from './templates';
 import { getTemplate } from './templates';
+
+/** Layout-only keys of a dashboard component (gridstack position/size). */
+const LAYOUT_KEYS = new Set(['x', 'y', 'w', 'h']);
+
+/**
+ * True when the only difference between two configs is gridstack layout keys —
+ * pure layout adjustments (drag/resize autosave) shouldn't create versions.
+ *
+ * Keys are SORTED while stripping: the same config legitimately arrives with
+ * different key orders — PostgreSQL jsonb canonicalizes on read (shorter keys
+ * first) while Zod's validation pipe reorders to the schema's declaration
+ * order — and JSON.stringify is key-order sensitive.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isLayoutOnlyChange(prev: unknown, next: unknown): boolean {
+  const strip = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      return value.map((v) => strip(v));
+    }
+    if (value && typeof value === 'object') {
+      const obj: Record<string, unknown> = {};
+      for (const k of Object.keys(value as Record<string, unknown>)
+        .filter((k) => !LAYOUT_KEYS.has(k))
+        .sort()) {
+        obj[k] = strip((value as Record<string, unknown>)[k]);
+      }
+      return obj;
+    }
+    return value;
+  };
+  return JSON.stringify(strip(prev)) === JSON.stringify(strip(next));
+}
 
 @Injectable()
 export class AppService {
@@ -105,14 +137,11 @@ export class AppService {
     if (ro.description !== undefined) data.description = ro.description;
     if (ro.config !== undefined) data.config = ro.config;
 
-    const app = await this.prismaService.txClient().app.update({
-      where: { id: appId },
-      data,
-    });
-
-    // If config changed, snapshot a new version
-    if (ro.config !== undefined) {
-      const newVersion = existing.version + 1;
+    // If config changed, snapshot a new version — unless only gridstack layout
+    // keys (drag/resize autosave) changed, which isn't a content change.
+    let newVersion: number | undefined;
+    if (ro.config !== undefined && !isLayoutOnlyChange(existing.config, ro.config)) {
+      newVersion = existing.version + 1;
       await this.prismaService.txClient().appVersion.create({
         data: {
           appId,
@@ -122,12 +151,14 @@ export class AppService {
           createdBy: userId,
         },
       });
-      await this.prismaService.txClient().app.update({
-        where: { id: appId },
-        data: { version: newVersion },
-      });
+      data.version = newVersion;
     }
 
+    // single write keeps the returned VO in sync with the stored version
+    const app = await this.prismaService.txClient().app.update({
+      where: { id: appId },
+      data,
+    });
     return this.toVo(app);
   }
 
@@ -154,24 +185,47 @@ export class AppService {
     userId: string,
     targetVersion: number
   ): Promise<IAppVo> {
+    // scope to the base — otherwise an appId from another base could be rolled
+    // back by anyone holding app|update on THIS base
+    const existing = await this.getApp(baseId, appId);
     const target = await this.prismaService.txClient().appVersion.findUnique({
       where: { appId_version: { appId, version: targetVersion } },
     });
     if (!target) throw new NotFoundException(`Version ${targetVersion} not found`);
 
+    // A rollback is itself a content change: snapshot the restored config as a
+    // NEW version. Rewinding app.version instead would collide with existing
+    // version rows on the next update (unique [appId, version]).
+    const newVersion = existing.version + 1;
+    await this.prismaService.txClient().appVersion.create({
+      data: {
+        appId,
+        version: newVersion,
+        config: target.config as object,
+        description: `Rollback to version ${targetVersion}`,
+        createdBy: userId,
+      },
+    });
+
     const app = await this.prismaService.txClient().app.update({
       where: { id: appId },
       data: {
         config: target.config as object,
+        version: newVersion,
         lastModifiedBy: userId,
       },
     });
     return this.toVo(app);
   }
 
-  async renderApp(baseId: string, appId: string, ctx: IRenderContext): Promise<string> {
+  async renderApp(
+    baseId: string,
+    appId: string,
+    ctx: IRenderContext,
+    options?: IRenderOptions
+  ): Promise<string> {
     const app = await this.getApp(baseId, appId);
     const template = getTemplate(app.template);
-    return template.render(app.config, ctx);
+    return template.render(app.config, ctx, options);
   }
 }

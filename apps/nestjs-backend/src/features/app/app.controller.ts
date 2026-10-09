@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import {
   createAppRoSchema,
@@ -70,40 +70,92 @@ export class AppController {
   async renderApp(
     @Param('baseId') baseId: string,
     @Param('appId') appId: string,
+    @Query('editable') editable: string | undefined,
     @Res() res: Response
   ): Promise<void> {
     const prisma = this.prismaService.txClient();
+    /** Quote a PostgreSQL identifier (double quotes doubled inside). */
+    const quoteIdent = (ident: string) => `"${ident.replace(/"/g, '""')}"`;
+    /**
+     * Resolve a tableId within THIS base. Apps embed tableId in their config;
+     * without the baseId filter an app in base A could read tables of base B.
+     */
+    const resolveTable = async (tableId: string) => {
+      const tableMeta = await prisma.tableMeta.findFirst({
+        where: { id: tableId, baseId, deletedTime: null },
+        select: { dbTableName: true },
+      });
+      return tableMeta;
+    };
     const ctx: IRenderContext = {
       getRecords: async (tableId: string) => {
-        // Look up the physical table name (dbTableName) — it differs from the table ID
-        const tableMeta = await prisma.tableMeta.findFirst({
-          where: { id: tableId, deletedTime: null },
-          select: { dbTableName: true },
-        });
+        const tableMeta = await resolveTable(tableId);
         if (!tableMeta?.dbTableName) return [];
         // dbTableName is "baseId.tableId" — split into schema.table for quoting
         const parts = tableMeta.dbTableName.split('.');
         const qualified =
-          parts.length === 2 ? `"${parts[0]}"."${parts[1]}"` : `"${tableMeta.dbTableName}"`;
+          parts.length === 2
+            ? `${quoteIdent(parts[0])}.${quoteIdent(parts[1])}`
+            : quoteIdent(tableMeta.dbTableName);
         const fields = await prisma.field.findMany({
           where: { tableId, deletedTime: null },
-          select: { name: true },
+          select: { name: true, dbFieldName: true },
         });
-        const fieldNames = fields.map((f) => `"${f.name}"`).join(', ');
-        if (!fieldNames) return [];
-        const rows = await prisma.$queryRawUnsafe(
-          `SELECT ${fieldNames} FROM ${qualified} LIMIT 500`
-        );
+        if (!fields.length) return [];
+        // Physical columns are named by dbFieldName (a Chinese field name
+        // becomes pinyin, e.g. 任务优先级 -> Ren_Wu_You_Xian_Ji) — select them
+        // AS the logical field name so templates stay name-based.
+        const columns = fields
+          .map((f) => `${quoteIdent(f.dbFieldName)} AS ${quoteIdent(f.name)}`)
+          .join(', ');
+        const rows = await prisma.$queryRawUnsafe(`SELECT ${columns} FROM ${qualified} LIMIT 500`);
         return rows as unknown as Array<Record<string, unknown>>;
       },
       getFields: async (tableId: string) => {
-        return prisma.field.findMany({
+        const tableMeta = await resolveTable(tableId);
+        if (!tableMeta) return [];
+        const fields = await prisma.field.findMany({
           where: { tableId, deletedTime: null },
-          select: { id: true, name: true, type: true },
+          select: { id: true, name: true, type: true, dbFieldName: true, options: true },
         });
+        return fields.map(({ options, ...rest }) => ({
+          ...rest,
+          // options is stored as a JSON string — surface parsed choices so
+          // templates can render select inputs
+          options: (() => {
+            try {
+              return options ? (JSON.parse(options) as unknown) : undefined;
+            } catch {
+              return undefined;
+            }
+          })(),
+        }));
       },
     };
-    const html = await this.appService.renderApp(baseId, appId, ctx);
+    const html = await this.appService.renderApp(baseId, appId, ctx, {
+      // The parent page only appends this flag when the user holds app|update;
+      // a forged flag grants nothing — actual layout saves are permission-checked
+      // on updateApp in the parent page.
+      editable: editable === '1',
+    });
+    // Helmet's default CSP (script-src 'self') blocks the CDN chart libraries and
+    // the inline bootstrap scripts our templates emit. The HTML below is fully
+    // server-generated (all user data escaped), so scope the relaxation to this
+    // endpoint only: allow jsdelivr assets + inline script/style, keep framing
+    // same-origin (the AppPage iframe is same-origin).
+    res.setHeader(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "img-src 'self' data:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "frame-ancestors 'self'",
+        "object-src 'none'",
+      ].join('; ')
+    );
     res.type('text/html').send(html);
   }
 
