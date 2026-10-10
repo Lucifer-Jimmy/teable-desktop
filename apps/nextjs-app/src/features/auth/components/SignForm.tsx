@@ -11,8 +11,6 @@ import {
 } from '@teable/openapi';
 import { Spin, Error as ErrorCom } from '@teable/ui-lib/base';
 import { Button, Input, Label, cn } from '@teable/ui-lib/shadcn';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,7 +33,6 @@ export const SignForm: FC<ISignForm> = (props) => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const [signupVerificationToken, setSignupVerificationToken] = useState<string>();
   const [signupVerificationCode, setSignupVerificationCode] = useState<string>();
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
   const { countdown, setCountdown } = useCutDown();
@@ -284,14 +281,6 @@ export const SignForm: FC<ISignForm> = (props) => {
               autoComplete={type === 'signup' ? 'new-password' : 'current-password'}
               disabled={isLoading}
             />
-            {type === 'signin' && (
-              <Link
-                className="absolute end-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
-                href="/auth/forget-password"
-              >
-                {t('auth:forgetPassword.trigger')}
-              </Link>
-            )}
           </div>
 
           {showVerificationCode && (

@@ -1,18 +1,13 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { canManageRole, hasPermission, Role, type IBaseRole, type IRole } from '@teable/core';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
 import type { CollaboratorItem, IAddCollaborator } from '@teable/openapi';
 import {
   addBaseCollaborator,
   CollaboratorType,
-  createBaseInvitationLink,
   deleteBaseCollaborator,
-  deleteBaseInvitationLink,
-  emailBaseInvitation,
   getBaseCollaboratorList,
-  listBaseInvitationLink,
   PrincipalType,
   updateBaseCollaborator,
-  updateBaseInvitationLink,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
@@ -28,12 +23,8 @@ import { AuthorityTips } from './common/AuthorityTips';
 import { CollaboratorButton } from './common/CollaboratorButton';
 import { CollaboratorTable } from './common/CollaboratorTable';
 import { DebounceInput } from './common/DebounceInput';
-import { EmailContent } from './common/EmailContent';
 import { ShareHeader } from './common/Header';
-import { InviteEmailButton } from './common/InviteEmailButton';
-import { InviteLinkButton } from './common/InviteLinkButton';
 import { InviteOrgButton } from './common/InviteOrgButton';
-import { LinkContent } from './common/LinkContent';
 import { OrgContent } from './common/OrgContent';
 
 const MEMBERS_PER_PAGE = 50;
@@ -57,9 +48,7 @@ export const ShareBaseContent = ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { t } = useTranslation(['common', 'space', 'table']) as any;
 
-  const [tabType, setTabType] = useState<
-    'email' | 'link' | 'collaborators' | 'organization' | undefined
-  >();
+  const [tabType, setTabType] = useState<'collaborators' | 'organization' | undefined>();
   const confirmSeat = useSeatConfirm({ baseId });
 
   const queryClient = useQueryClient();
@@ -90,44 +79,6 @@ export const ShareBaseContent = ({
   const collaborators = useMemo(() => {
     return data?.pages.flatMap((page) => page.collaborators);
   }, [data]);
-
-  const hasInviteLinkPermission = hasPermission(userRole, 'base|invite_link');
-  const { data: linkList } = useQuery({
-    queryKey: ['invite-link-list', baseId],
-    queryFn: ({ queryKey }) => listBaseInvitationLink(queryKey[1]).then((res) => res.data),
-    enabled: hasInviteLinkPermission,
-  });
-
-  const { mutateAsync: emailInvitation, isPending: emailInvitationLoading } = useMutation({
-    mutationFn: emailBaseInvitation,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-      });
-      toast.success(t('invite.sendInvitationSuccess'));
-    },
-  });
-
-  const { mutate: createInviteLinkRequest, isPending: createInviteLinkLoading } = useMutation({
-    mutationFn: createBaseInvitationLink,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
-    },
-  });
-
-  const { mutate: updateInviteLink, isPending: updateInviteLinkLoading } = useMutation({
-    mutationFn: updateBaseInvitationLink,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
-    },
-  });
-
-  const { mutate: deleteInviteLink, isPending: deleteInviteLinkLoading } = useMutation({
-    mutationFn: deleteBaseInvitationLink,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
-    },
-  });
 
   const { mutate: deleteCollaborator, isPending: deleteCollaboratorLoading } = useMutation({
     mutationFn: deleteBaseCollaborator,
@@ -182,7 +133,6 @@ export const ShareBaseContent = ({
     });
   };
 
-  const linkListCount = linkList?.length || 0;
   const changeTabType = (nextTabType: typeof tabType) => {
     setTabType(nextTabType);
     onSubPageChange(Boolean(nextTabType && nextTabType !== 'collaborators'));
@@ -190,60 +140,6 @@ export const ShareBaseContent = ({
   const onBack = () => changeTabType(undefined);
   const defaultRole = userRole === Role.Owner ? Role.Creator : userRole;
   const filteredRoleStatic = useFilteredRoleStatic(defaultRole);
-
-  if (tabType === 'link') {
-    return (
-      <LinkContent
-        list={linkList}
-        defaultRole={defaultRole}
-        isCreateLoading={createInviteLinkLoading}
-        isUpdateLoading={updateInviteLinkLoading}
-        isDeleteLoading={deleteInviteLinkLoading}
-        onCreate={async (role) => {
-          if (await confirmSeat({ role, count: 1, action: 'link' })) {
-            createInviteLinkRequest({
-              baseId,
-              createBaseInvitationLinkRo: { role: role as IBaseRole },
-            });
-          }
-        }}
-        onUpdate={async (invitationId, role) => {
-          if (await confirmSeat({ role, count: 1, action: 'link' })) {
-            updateInviteLink({
-              invitationId,
-              updateBaseInvitationLinkRo: { role: role as IBaseRole },
-              baseId,
-            });
-          }
-        }}
-        onDelete={(invitationId) => deleteInviteLink({ invitationId, baseId })}
-        onBack={onBack}
-        filteredRoleStatic={filteredRoleStatic}
-      />
-    );
-  }
-
-  if (tabType === 'email') {
-    const resourceUrl =
-      typeof window === 'undefined' ? '' : `${window.location.origin}/base/${baseId}`;
-
-    return (
-      <EmailContent
-        defaultRole={defaultRole}
-        isCreateLoading={emailInvitationLoading}
-        onCreate={async (ro) => {
-          if (!(await confirmSeat({ role: ro.role, count: ro.emails.length, action: 'invite' }))) {
-            return false;
-          }
-          await emailInvitation({ baseId, emailBaseInvitationRo: ro });
-          return true;
-        }}
-        onBack={onBack}
-        filteredRoleStatic={filteredRoleStatic}
-        resourceUrl={resourceUrl}
-      />
-    );
-  }
 
   if (tabType === 'organization') {
     return (
@@ -284,21 +180,10 @@ export const ShareBaseContent = ({
       />
       {enabledAuthority && <AuthorityTips onViewDetail={toAuthorityManage} />}
       <div className="flex flex-col gap-5">
-        <InviteEmailButton onClick={() => changeTabType('email')} />
         {user?.organization && (
           <div className="space-y-2">
             <p className="text-sm font-semibold">{t('invite.addOrgCollaborator.title')}</p>
             <InviteOrgButton onClick={() => changeTabType('organization')} />
-          </div>
-        )}
-        {hasInviteLinkPermission && (
-          <div className="relative space-y-2">
-            <p className="text-sm font-semibold">{t('invite.dialog.tabLink')}</p>
-            <InviteLinkButton
-              className="box-content -translate-x-2 px-2 py-0"
-              linkListCount={linkListCount}
-              onClick={() => changeTabType('link')}
-            />
           </div>
         )}
         <div className="space-y-2">

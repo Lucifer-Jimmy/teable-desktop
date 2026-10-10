@@ -15,7 +15,6 @@ import React from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { AddPassword } from './account/AddPassword';
-import { ChangeEmailDialog } from './account/ChangeEmailDialog';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 import { DeleteAccountDialog } from './account/DeleteAccountDialog';
 import { SettingTabHeader, SettingTabShell } from './SettingTabShell';
@@ -127,11 +126,6 @@ export const Account: React.FC = () => {
                   <p className="text-sm font-medium">{t('settings.account.email')}</p>
                   <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
                 </div>
-                <ChangeEmailDialog>
-                  <Button className="float-end" size={'sm'} variant={'outline'}>
-                    {t('settings.account.changeEmail.title')}
-                  </Button>
-                </ChangeEmailDialog>
               </div>
               {sessionUser.hasPassword && (
                 <div className="flex items-center justify-between rounded-md border bg-card px-4 py-3">

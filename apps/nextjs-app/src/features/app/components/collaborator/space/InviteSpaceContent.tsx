@@ -1,5 +1,5 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { canManageRole, hasPermission, Role, type IBaseRole, type IRole } from '@teable/core';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
 import type {
   CollaboratorItem,
   IAddCollaborator,
@@ -9,18 +9,13 @@ import type {
 import {
   addSpaceCollaborator,
   CollaboratorType,
-  createSpaceInvitationLink,
   deleteBaseCollaborator,
   deleteSpaceBaseCollaborators,
   deleteSpaceCollaborator,
-  deleteSpaceInvitationLink,
-  emailSpaceInvitation,
   getSpaceUniqueCollaboratorList,
-  listSpaceInvitationLink,
   PrincipalType,
   updateBaseCollaborator,
   updateSpaceCollaborator,
-  updateSpaceInvitationLink,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
@@ -35,12 +30,8 @@ import { CollaboratorsDialog } from '../share/CollaboratorsDialog';
 import { CollaboratorButton } from '../share/common/CollaboratorButton';
 import { CollaboratorTable } from '../share/common/CollaboratorTable';
 import { DebounceInput } from '../share/common/DebounceInput';
-import { EmailContent } from '../share/common/EmailContent';
 import { ShareHeader } from '../share/common/Header';
-import { InviteEmailButton } from '../share/common/InviteEmailButton';
-import { InviteLinkButton } from '../share/common/InviteLinkButton';
 import { InviteOrgButton } from '../share/common/InviteOrgButton';
-import { LinkContent } from '../share/common/LinkContent';
 import { OrgContent } from '../share/common/OrgContent';
 
 interface IInviteSpaceContentProps {
@@ -60,13 +51,11 @@ interface IDeleteCollaboratorContext {
 
 const MEMBERS_PER_PAGE = 50;
 
-const inviteLinkQueryKey = (spaceId: string) => ['space-invite-link-list', spaceId] as const;
-
 export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
   const { spaceId, spaceName, role: userRole, onClose, onSubPageChange } = props;
   const { t } = useTranslation('common');
   const { user } = useSession();
-  const [tabType, setTabType] = useState<'email' | 'organization' | 'link' | 'collaborators'>();
+  const [tabType, setTabType] = useState<'organization' | 'collaborators' | undefined>();
   const confirmSeat = useSeatConfirm({ spaceId });
 
   const queryClient = useQueryClient();
@@ -101,47 +90,6 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     () => collaborators.slice(0, 4).map(uniqueCollaboratorToSpaceItem),
     [collaborators]
   );
-
-  const hasInviteLinkPermission = hasPermission(userRole, 'space|invite_link');
-  const { data: linkList } = useQuery({
-    queryKey: inviteLinkQueryKey(spaceId),
-    queryFn: ({ queryKey }) => listSpaceInvitationLink(queryKey[1]).then((res) => res.data),
-    enabled: hasInviteLinkPermission,
-  });
-
-  const { mutateAsync: emailInvitation, isPending: emailInvitationLoading } = useMutation({
-    mutationFn: emailSpaceInvitation,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
-      });
-      toast.success(t('invite.sendInvitationSuccess'));
-    },
-  });
-
-  const { mutate: createInviteLinkRequest, isPending: createInviteLinkLoading } = useMutation({
-    mutationFn: createSpaceInvitationLink,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
-    },
-  });
-
-  const { mutate: updateInviteLink, isPending: updateInviteLinkLoading } = useMutation({
-    mutationFn: updateSpaceInvitationLink,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
-    },
-  });
-
-  const { mutate: deleteInviteLink, isPending: deleteInviteLinkLoading } = useMutation({
-    mutationFn: deleteSpaceInvitationLink,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
-    },
-  });
 
   const { mutate: deleteCollaborator, isPending: deleteCollaboratorLoading } = useMutation({
     mutationFn: ({ resourceId, principalId, principalType, isBase }: IDeleteCollaboratorContext) =>
@@ -245,7 +193,6 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
   });
 
   const defaultRole = userRole === Role.Owner ? Role.Creator : userRole;
-  const linkListCount = linkList?.length || 0;
   const changeTabType = (nextTabType: typeof tabType) => {
     setTabType(nextTabType);
     onSubPageChange(Boolean(nextTabType && nextTabType !== 'collaborators'));
@@ -253,60 +200,6 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
   const onBack = () => changeTabType(undefined);
   const filteredRoleStatic = useFilteredRoleStatic(userRole);
   const baseFilteredRoleStatic = useFilteredBaseRoleStatic(defaultRole);
-
-  if (tabType === 'link') {
-    return (
-      <LinkContent
-        list={linkList}
-        defaultRole={defaultRole}
-        isCreateLoading={createInviteLinkLoading}
-        isUpdateLoading={updateInviteLinkLoading}
-        isDeleteLoading={deleteInviteLinkLoading}
-        onCreate={async (role) => {
-          if (await confirmSeat({ role, count: 1, action: 'link' })) {
-            createInviteLinkRequest({
-              spaceId,
-              createSpaceInvitationLinkRo: { role: role as IBaseRole },
-            });
-          }
-        }}
-        onUpdate={async (invitationId, role) => {
-          if (await confirmSeat({ role, count: 1, action: 'link' })) {
-            updateInviteLink({
-              invitationId,
-              updateSpaceInvitationLinkRo: { role: role as IBaseRole },
-              spaceId,
-            });
-          }
-        }}
-        onDelete={(invitationId) => deleteInviteLink({ invitationId, spaceId })}
-        onBack={onBack}
-        filteredRoleStatic={filteredRoleStatic}
-      />
-    );
-  }
-
-  if (tabType === 'email') {
-    const resourceUrl =
-      typeof window === 'undefined' ? '' : `${window.location.origin}/space/${spaceId}`;
-
-    return (
-      <EmailContent
-        defaultRole={defaultRole}
-        isCreateLoading={emailInvitationLoading}
-        onCreate={async (ro) => {
-          if (!(await confirmSeat({ role: ro.role, count: ro.emails.length, action: 'invite' }))) {
-            return false;
-          }
-          await emailInvitation({ spaceId, emailSpaceInvitationRo: ro });
-          return true;
-        }}
-        onBack={onBack}
-        filteredRoleStatic={filteredRoleStatic}
-        resourceUrl={resourceUrl}
-      />
-    );
-  }
 
   if (tabType === 'organization') {
     return (
@@ -357,21 +250,10 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
         }
       />
       <div className="flex flex-col gap-5">
-        <InviteEmailButton onClick={() => changeTabType('email')} />
         {user?.organization && (
           <div className="space-y-2">
             <p className="text-sm font-semibold">{t('invite.addOrgCollaborator.title')}</p>
             <InviteOrgButton onClick={() => changeTabType('organization')} />
-          </div>
-        )}
-        {hasInviteLinkPermission && (
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">{t('invite.dialog.tabLink')}</p>
-            <InviteLinkButton
-              className="box-content -translate-x-2 bg-transparent px-2 py-0"
-              linkListCount={linkListCount}
-              onClick={() => changeTabType('link')}
-            />
           </div>
         )}
         <div className="space-y-2">
