@@ -240,7 +240,7 @@ export const dashboardTemplate: IAppTemplate = {
         }
         items.push({
           comp,
-          html: `<div class="chart-wrap"><div class="chart-title">${escapeHtml(comp.title)}</div><canvas id="${canvasId}"></canvas></div>`,
+          html: `<div class="chart-wrap"><div class="chart-title">${escapeHtml(comp.title)}</div><div class="chart-body"><canvas id="${canvasId}"></canvas></div></div>`,
         });
         continue;
       }
@@ -282,7 +282,7 @@ export const dashboardTemplate: IAppTemplate = {
       }
       items.push({
         comp,
-        html: `<div class="chart-wrap"><div class="chart-title">${escapeHtml(comp.title)}</div><canvas id="${canvasId}"></canvas></div>`,
+        html: `<div class="chart-wrap"><div class="chart-title">${escapeHtml(comp.title)}</div><div class="chart-body"><canvas id="${canvasId}"></canvas></div></div>`,
       });
     }
 
@@ -319,7 +319,15 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
 .card-value{font-size:28px;font-weight:700;color:#1e293b}
 .chart-wrap{display:flex;flex-direction:column;height:100%;padding:16px 20px}
 .chart-title{font-size:14px;font-weight:600;color:#334155;margin-bottom:8px;flex-shrink:0}
-.chart-wrap canvas{flex:1;min-height:0}
+/* Chart.js requires the canvas to sit alone inside a sized, positioned
+   container — its ResizeObserver watches that container to trigger
+   chart.resize() when gridstack resizes the block. A bare flex:1 canvas
+   only gets bitmap-stretched, never re-laid-out. The canvas is pinned to
+   the container with !important so its display box always tracks the
+   block during CSS transitions; Chart.js updates the bitmap resolution
+   on its (event-driven) resize passes. */
+.chart-body{position:relative;flex:1;min-height:0}
+.chart-body canvas{position:absolute;top:0;left:0;width:100% !important;height:100% !important}
 </style>
 <script>
 (function(){
@@ -372,9 +380,43 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
     cellHeight: 44,
     margin: 8,
     staticGrid: !editable,
-    animate: true,
+    // no relayout transitions: resize observers then see only the settled
+    // size (mid-transition frames caused resize storms that left charts
+    // stuck at an intermediate size)
+    animate: false,
   }, '.grid-stack');
   if (!hasFullLayout) grid.compact();
+
+  // Chart.js's own resize observer never fires here (its canvas carries a
+  // fixed inline size), so re-fit every chart to its block on gridstack
+  // layout changes — including this first pass after gridstack has sized
+  // the items (charts are created before the grid initializes).
+  var resizeCharts = function () {
+    if (!window.Chart) return;
+    charts.forEach(function (c) {
+      var chart = window.Chart.getChart(document.getElementById(c.canvasId));
+      if (chart) chart.resize();
+    });
+  };
+  resizeCharts();
+  // Live feedback while dragging; the delayed path is unreliable (gridstack
+  // animates relayouts with CSS transitions of indeterminate timing), so a
+  // ResizeObserver on every chart body watches the settled size directly —
+  // it fires on the final layout no matter which path produced the change.
+  grid.on('resize', resizeCharts);
+  grid.on('change', resizeCharts);
+  if (typeof ResizeObserver !== 'undefined') {
+    var chartResizeObserver = new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var canvas = entry.target.querySelector('canvas');
+        var chart = window.Chart && canvas ? window.Chart.getChart(canvas) : null;
+        if (chart) chart.resize();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.chart-body'), function (el) {
+      chartResizeObserver.observe(el);
+    });
+  }
 
   if (!editable) return;
 

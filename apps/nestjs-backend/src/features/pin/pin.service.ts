@@ -11,9 +11,7 @@ import type {
   UpdatePinOrderRo,
 } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
-import { Knex } from 'knex';
 import { keyBy } from 'lodash';
-import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type {
@@ -36,7 +34,6 @@ export class PinService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly lastVisitService: LastVisitService
   ) {}
 
@@ -247,24 +244,21 @@ export class PinService {
     });
   }
 
-  private async fetchWorkflows(ids?: string[]) {
-    if (!ids?.length) return [];
-    const sql = this.knex('workflow')
-      .select('id', 'name', this.knex.raw('base_id as "baseId"'))
-      .whereIn('id', ids)
-      .whereNull('deleted_time')
-      .toQuery();
-    return this.prismaService.$queryRawUnsafe<{ id: string; name: string; baseId: string }[]>(sql);
+  private async fetchWorkflows(_ids?: string[]) {
+    // The workflow table is not provisioned in this build — workflow pins
+    // cannot exist, so there is nothing to fetch.
+    return [] as { id: string; name: string; baseId: string }[];
   }
 
   private async fetchApps(ids?: string[]) {
     if (!ids?.length) return [];
-    const sql = this.knex('app')
-      .select('id', 'name', this.knex.raw('base_id as "baseId"'))
-      .whereIn('id', ids)
-      .whereNull('deleted_time')
-      .toQuery();
-    return this.prismaService.$queryRawUnsafe<{ id: string; name: string; baseId: string }[]>(sql);
+    // Prisma maps the schema's camelCase columns (baseId/deletedTime); the
+    // previous raw knex query assumed snake_case physical columns and
+    // failed with `column "base_id" does not exist`
+    return this.prismaService.app.findMany({
+      where: { id: { in: ids }, deletedTime: null },
+      select: { id: true, name: true, baseId: true },
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
