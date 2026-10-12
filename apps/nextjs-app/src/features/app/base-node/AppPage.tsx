@@ -274,7 +274,20 @@ export const AppPage: React.FC = () => {
 
 interface IDashboardComponent {
   id: string;
-  type: 'statCard' | 'bar' | 'horizontalBar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter';
+  type:
+    | 'statCard'
+    | 'bar'
+    | 'horizontalBar'
+    | 'line'
+    | 'area'
+    | 'pie'
+    | 'donut'
+    | 'scatter'
+    | 'radar'
+    | 'combo'
+    | 'funnel'
+    | 'progress'
+    | 'leaderboard';
   title: string;
   field: string;
   agg: 'count' | 'sum' | 'avg' | 'max' | 'min';
@@ -304,6 +317,11 @@ const COMPONENT_TYPES: Array<{ value: IDashboardComponent['type']; label: string
   { value: 'pie', label: '饼图' },
   { value: 'donut', label: '环形图' },
   { value: 'scatter', label: '散点图' },
+  { value: 'radar', label: '雷达图' },
+  { value: 'combo', label: '组合图' },
+  { value: 'funnel', label: '漏斗图' },
+  { value: 'progress', label: '进度图' },
+  { value: 'leaderboard', label: '排行榜' },
 ];
 
 interface IAppConfigSidebarProps {
@@ -633,6 +651,34 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
                         ))}
                       </select>
                     )}
+                    {c.type === 'combo' && (
+                      <select
+                        className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                        value={c.field2 ?? ''}
+                        onChange={(e) => updateComponent(c.id, { field2: e.target.value })}
+                      >
+                        <option value="">折线字段（必选）</option>
+                        {(fields ?? []).map((field) => (
+                          <option key={field.id} value={field.name}>
+                            {field.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {c.type === 'progress' && (
+                      <select
+                        className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                        value={c.field2 ?? ''}
+                        onChange={(e) => updateComponent(c.id, { field2: e.target.value })}
+                      >
+                        <option value="">目标字段（可选，默认 100）</option>
+                        {(fields ?? []).map((field) => (
+                          <option key={field.id} value={field.name}>
+                            {field.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {['bar', 'horizontalBar', 'line', 'area'].includes(c.type) && (
                       <select
                         className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
@@ -659,7 +705,20 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
                 </Button>
                 <div className="grid grid-cols-3 gap-1.5">
                   {(
-                    ['bar', 'horizontalBar', 'line', 'area', 'pie', 'donut', 'scatter'] as const
+                    [
+                      'bar',
+                      'horizontalBar',
+                      'line',
+                      'area',
+                      'pie',
+                      'donut',
+                      'scatter',
+                      'radar',
+                      'combo',
+                      'funnel',
+                      'progress',
+                      'leaderboard',
+                    ] as const
                   ).map((type) => (
                     <Button
                       key={type}

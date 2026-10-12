@@ -16,7 +16,12 @@ export type DashboardComponentType =
   | 'area'
   | 'pie'
   | 'donut'
-  | 'scatter';
+  | 'scatter'
+  | 'radar'
+  | 'combo'
+  | 'funnel'
+  | 'progress'
+  | 'leaderboard';
 
 export interface IDashboardComponent {
   id: string;
@@ -29,7 +34,8 @@ export interface IDashboardComponent {
   groupBy?: string;
   /** Second series dimension: each distinct value becomes a stacked segment. */
   stackBy?: string;
-  /** Scatter only: Y-axis field (field is X-axis). */
+  /** Scatter: Y-axis field (field is X-axis). Combo: line-series field
+   *  (field is the bar series). Progress: optional target field (default 100). */
   field2?: string;
   /** Grid layout (gridstack 12-col units). Server assigns defaults when absent. */
   x?: number;
@@ -83,6 +89,11 @@ const DEFAULT_SIZE: Record<DashboardComponentType, { w: number; h: number }> = {
   pie: { w: 4, h: 7 },
   donut: { w: 4, h: 7 },
   scatter: { w: 6, h: 7 },
+  radar: { w: 6, h: 7 },
+  combo: { w: 8, h: 7 },
+  funnel: { w: 6, h: 8 },
+  progress: { w: 4, h: 6 },
+  leaderboard: { w: 4, h: 8 },
 };
 
 /** Migrate Phase-1 metrics config to the multi-component model. */
@@ -139,15 +150,26 @@ interface IChartPayload {
   horizontal?: boolean;
   area?: boolean;
   stacked?: boolean;
+  /** Combo: dual-axis bar + line; datasets carry a kind discriminator. */
+  combo?: boolean;
+  /** Funnel: horizontal floating bars; funnelData carries the real values. */
+  funnel?: boolean;
+  /** Progress ring: single percentage with value/target for the center. */
+  progress?: boolean;
+  pct?: number;
+  value?: number;
+  target?: number;
   title: string;
   labels?: string[];
   /** Single-series charts: one entry per label. */
   data?: number[];
-  /** Multi-series (stackBy) charts: one dataset per stack segment. */
-  datasets?: { label: string; data: number[] }[];
+  /** Multi-series (stackBy/combo) charts: one dataset per series. */
+  datasets?: { label: string; data: number[]; kind?: 'bar' | 'line' }[];
   /** Scatter charts: {x,y} points, optionally per series. */
   points?: { x: number; y: number }[];
   pointSeries?: { label: string; points: { x: number; y: number }[] }[];
+  /** Funnel stage data (real value + centered floating-bar bounds). */
+  funnelData?: Array<{ name: string; value: number; min: number; max: number }>;
 }
 
 export const dashboardTemplate: IAppTemplate = {
@@ -200,6 +222,9 @@ export const dashboardTemplate: IAppTemplate = {
     const items: IGridItem[] = [];
     let chartIndex = 0;
 
+    const chartItemHtml = (id: string, title: string) =>
+      `<div class="chart-wrap"><div class="chart-title">${escapeHtml(title)}</div><div class="chart-body"><canvas id="${id}"></canvas></div></div>`;
+
     for (const comp of components) {
       if (comp.type === 'statCard') {
         const value = metricValue(comp.agg, comp.field, records);
@@ -211,6 +236,113 @@ export const dashboardTemplate: IAppTemplate = {
       }
 
       const canvasId = `chart-${chartIndex++}`;
+
+      if (comp.type === 'leaderboard') {
+        // top-10 ranking: pure HTML rows, no chart library involved
+        const entries = [...group(records, comp.groupBy ?? '').entries()]
+          .map(([k, rows]) => ({ k, v: metricValue(comp.agg, comp.field, rows) }))
+          .sort((a, b) => b.v - a.v)
+          .slice(0, 10);
+        const max = Math.max(...entries.map((e) => e.v), 1);
+        const rowsHtml = entries
+          .map(
+            (e, i) =>
+              `<div class="lb-row"><span class="lb-rank${i < 3 ? ' lb-rank-top' : ''}">${i + 1}</span><span class="lb-name" title="${escapeHtml(e.k)}">${escapeHtml(e.k)}</span><span class="lb-bar"><span style="width:${Math.max(2, (e.v / max) * 100)}%"></span></span><span class="lb-val">${e.v}</span></div>`
+          )
+          .join('');
+        items.push({
+          comp,
+          html: `<div class="chart-wrap"><div class="chart-title">${escapeHtml(comp.title)}</div><div class="lb-list">${rowsHtml}</div></div>`,
+        });
+        continue;
+      }
+
+      if (comp.type === 'progress') {
+        // single-value ring: value vs target (default 100 suits percent fields)
+        const value = metricValue(comp.agg, comp.field, records);
+        const target = comp.field2 ? metricValue(comp.agg, comp.field2, records) : 100;
+        const pct = target > 0 ? Math.max(0, Math.min(100, Math.round((value / target) * 100))) : 0;
+        payloads.push({
+          canvasId,
+          type: 'doughnut',
+          progress: true,
+          title: comp.title,
+          pct,
+          value,
+          target,
+        });
+        items.push({ comp, html: chartItemHtml(canvasId, comp.title) });
+        continue;
+      }
+
+      if (comp.type === 'radar') {
+        const radarGroups = group(records, comp.groupBy ?? '');
+        const radarLabels = [...radarGroups.keys()].slice(0, 20);
+        payloads.push({
+          canvasId,
+          type: 'radar',
+          title: comp.title,
+          labels: radarLabels,
+          data: radarLabels.map((l) => metricValue(comp.agg, comp.field, radarGroups.get(l)!)),
+        });
+        items.push({ comp, html: chartItemHtml(canvasId, comp.title) });
+        continue;
+      }
+
+      if (comp.type === 'combo') {
+        // dual axis: bar series (field) + line series (field2) per category
+        const comboGroups = group(records, comp.groupBy ?? '');
+        const comboLabels = [...comboGroups.keys()].slice(0, 30);
+        payloads.push({
+          canvasId,
+          type: 'bar',
+          combo: true,
+          title: comp.title,
+          labels: comboLabels,
+          datasets: [
+            {
+              label: comp.field || '记录数',
+              data: comboLabels.map((l) => metricValue(comp.agg, comp.field, comboGroups.get(l)!)),
+              kind: 'bar',
+            },
+            {
+              label: comp.field2 || '数值',
+              data: comboLabels.map((l) =>
+                metricValue(comp.agg, comp.field2 ?? '', comboGroups.get(l)!)
+              ),
+              kind: 'line',
+            },
+          ],
+        });
+        items.push({ comp, html: chartItemHtml(canvasId, comp.title) });
+        continue;
+      }
+
+      if (comp.type === 'funnel') {
+        // stages sorted by value desc; drawn as centered floating bars whose
+        // width is proportional to the largest stage
+        const funnelGroups = group(records, comp.groupBy ?? '');
+        const entries = [...funnelGroups.entries()]
+          .map(([name, rows]) => ({ name, value: metricValue(comp.agg, comp.field, rows) }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 8);
+        const max = Math.max(...entries.map((e) => e.value), 1);
+        payloads.push({
+          canvasId,
+          type: 'bar',
+          funnel: true,
+          title: comp.title,
+          labels: entries.map((e) => e.name),
+          funnelData: entries.map((e) => ({
+            name: e.name,
+            value: e.value,
+            min: 50 - (e.value / max) * 50,
+            max: 50 + (e.value / max) * 50,
+          })),
+        });
+        items.push({ comp, html: chartItemHtml(canvasId, comp.title) });
+        continue;
+      }
 
       if (comp.type === 'scatter') {
         // points from two numeric fields; optional groupBy splits colored series.
@@ -328,6 +460,15 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
    on its (event-driven) resize passes. */
 .chart-body{position:relative;flex:1;min-height:0}
 .chart-body canvas{position:absolute;top:0;left:0;width:100% !important;height:100% !important}
+/* leaderboard rows (pure HTML, no chart library) */
+.lb-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.lb-row{display:flex;align-items:center;gap:8px;min-height:24px}
+.lb-rank{flex-shrink:0;width:20px;height:20px;border-radius:50%;background:#f1f5f9;color:#64748b;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.lb-rank-top{background:#6366f1;color:#fff}
+.lb-name{flex-shrink:0;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#334155}
+.lb-bar{flex:1;height:6px;border-radius:3px;background:#f1f5f9;overflow:hidden}
+.lb-bar span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#6366f1,#818cf8)}
+.lb-val{flex-shrink:0;font-size:13px;font-weight:600;color:#1e293b;font-variant-numeric:tabular-nums}
 </style>
 <script>
 (function(){
@@ -338,15 +479,84 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
   // draw charts first — gridstack resize is picked up by Chart.js's ResizeObserver
   var PALETTE = ${JSON.stringify(PALETTE)};
   function pick(i){ return PALETTE[i % PALETTE.length]; }
+  // progress ring: draws the percentage and value/target in the doughnut hole
+  var centerTextPlugin = {
+    id: 'centerText',
+    afterDraw: function (chart) {
+      var opts = chart.options.plugins && chart.options.plugins.centerText;
+      if (!opts) return;
+      var meta = chart.getDatasetMeta(0);
+      var arc = meta && meta.data && meta.data[0];
+      if (!arc) return;
+      var ctx = chart.ctx;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '700 24px Inter, -apple-system, sans-serif';
+      ctx.fillText(opts.pct + '%', arc.x, arc.y - 8);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '400 11px Inter, -apple-system, sans-serif';
+      ctx.fillText(opts.value + ' / ' + opts.target, arc.x, arc.y + 14);
+      ctx.restore();
+    }
+  };
   if (window.Chart) {
     charts.forEach(function(c, i){
+      var el = document.getElementById(c.canvasId);
+      if (!el) return;
+
+      if (c.progress) {
+        new Chart(el, {
+          type: 'doughnut',
+          data: { datasets: [{ data: [c.pct, 100 - c.pct], backgroundColor: ['#6366f1', '#e2e8f0'], borderWidth: 0, cutout: '74%' }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            rotation: -90, circumference: 360,
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false },
+              centerText: { pct: c.pct, value: c.value, target: c.target }
+            }
+          },
+          plugins: [centerTextPlugin]
+        });
+        return;
+      }
+
       var ds;
-      if (c.pointSeries) {
+      var scales;
+      var legend;
+      var tooltip;
+      if (c.funnel) {
+        ds = [{
+          label: c.title,
+          data: c.funnelData.map(function(e){ return [e.min, e.max]; }),
+          backgroundColor: c.funnelData.map(function(e, i){ return pick(i); }),
+          borderWidth: 0, barPercentage: 0.8
+        }];
+        scales = { x: { display: false }, y: { reverse: true, grid: { display: false } } };
+        legend = false;
+        tooltip = { callbacks: { label: function(ctx){ return ' ' + c.funnelData[ctx.dataIndex].value; } } };
+      } else if (c.combo && c.datasets) {
+        ds = c.datasets.map(function(d){
+          if (d.kind === 'line') return { type: 'line', label: d.label, data: d.data, yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', tension: 0.3, borderWidth: 2, pointRadius: 3, fill: false };
+          return { type: 'bar', label: d.label, data: d.data, yAxisID: 'y', backgroundColor: 'rgba(99,102,241,.75)', borderRadius: 6 };
+        });
+        scales = { x: {}, y: { beginAtZero: true, position: 'left' }, y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } } };
+        legend = true;
+      } else if (c.pointSeries) {
         ds = c.pointSeries.map(function(s, si){ return { label: s.label, data: s.points, backgroundColor: pick(si) }; });
+        legend = true;
       } else if (c.points) {
         ds = [{ label: c.title, data: c.points, backgroundColor: 'rgba(99,102,241,.6)' }];
+        legend = false;
       } else if (c.datasets) {
         ds = c.datasets.map(function(d, si){ return { label: d.label, data: d.data, backgroundColor: pick(si) }; });
+        legend = true;
+      } else if (c.type === 'radar') {
+        ds = [{ label: c.title, data: c.data, backgroundColor: 'rgba(99,102,241,.2)', borderColor: '#6366f1', borderWidth: 2, pointBackgroundColor: '#6366f1', pointRadius: 3 }];
+        legend = false;
       } else {
         ds = [{
           label: c.title, data: c.data,
@@ -355,20 +565,25 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
           fill: c.area === true, borderWidth: (c.type === 'line' || c.area) ? 2 : 0,
           borderRadius: c.type === 'bar' ? 6 : 0,
         }];
+        legend = c.type === 'pie' || c.type === 'doughnut';
       }
-      var scales = c.type === 'pie' || c.type === 'doughnut' ? {} : {
-        x: { stacked: c.stacked === true },
-        y: { stacked: c.stacked === true, beginAtZero: true }
-      };
-      if (c.horizontal) { scales = { x: scales.y, y: scales.x }; }
-      new Chart(document.getElementById(c.canvasId), {
+      if (!scales) {
+        scales = c.type === 'radar'
+          ? { r: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.06)' }, angleLines: { color: 'rgba(0,0,0,.06)' }, pointLabels: { font: { size: 11 } } } }
+          : (c.type === 'pie' || c.type === 'doughnut' ? {} : {
+              x: { stacked: c.stacked === true },
+              y: { stacked: c.stacked === true, beginAtZero: true }
+            });
+        if (c.horizontal) { scales = { x: scales.y, y: scales.x }; }
+      }
+      new Chart(el, {
         type: c.type,
         data: { labels: c.labels, datasets: ds },
         options: {
           responsive: true, maintainAspectRatio: false,
           indexAxis: c.horizontal ? 'y' : 'x',
           scales: scales,
-          plugins: { legend: { display: c.type === 'pie' || c.type === 'doughnut' || c.datasets || c.pointSeries } }
+          plugins: { legend: { display: legend }, tooltip: tooltip }
         }
       });
     });
