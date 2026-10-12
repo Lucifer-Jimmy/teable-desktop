@@ -13,7 +13,16 @@ import type { IAppVersionVo, IAppVo, IAppTemplateConfig } from '@teable/openapi'
 import { useTables } from '@teable/sdk';
 import type { Table } from '@teable/sdk';
 import { useBasePermission } from '@teable/sdk/hooks';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from '@teable/ui-lib/shadcn';
 import {
   CalendarRange,
   BarChart3,
@@ -308,6 +317,41 @@ const AGG_OPTIONS: Array<{ value: IDashboardComponent['agg']; label: string }> =
   { value: 'min', label: '最小' },
 ];
 
+/** Radix forbids empty-string SelectItem values — map the "no field" state
+ *  through this sentinel so the placeholder stays selectable/clearable. */
+const NO_FIELD = '__none__';
+
+/** Field picker built on the system Select primitives. */
+const FieldSelect = ({
+  value,
+  placeholder,
+  fields,
+  size = 'default',
+  className,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  fields: IFieldVo[];
+  size?: 'default' | 'sm';
+  className?: string;
+  onChange: (value: string) => void;
+}) => (
+  <Select value={value || NO_FIELD} onValueChange={(v) => onChange(v === NO_FIELD ? '' : v)}>
+    <SelectTrigger size={size} className={cn('w-full', className)}>
+      <SelectValue placeholder={placeholder} />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value={NO_FIELD}>{placeholder}</SelectItem>
+      {fields.map((f) => (
+        <SelectItem key={f.id} value={f.name}>
+          {f.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+);
+
 const COMPONENT_TYPES: Array<{ value: IDashboardComponent['type']; label: string }> = [
   { value: 'statCard', label: '指标卡' },
   { value: 'bar', label: '柱状图' },
@@ -467,11 +511,9 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
         {/* Table selection */}
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">数据表</label>
-          <select
-            className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+          <Select
             value={config.tableId}
-            onChange={(e) => {
-              const nextTableId = e.target.value;
+            onValueChange={(nextTableId) => {
               setConfig((prev) => {
                 if (nextTableId === prev.tableId) return prev;
                 // field mappings point at the OLD table's fields — clear them
@@ -506,13 +548,17 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
               });
             }}
           >
-            <option value="">选择数据表</option>
-            {tables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue placeholder="选择数据表" />
+            </SelectTrigger>
+            <SelectContent>
+              {tables.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Gantt / form: named field slots */}
@@ -522,27 +568,20 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 {f.label}
               </label>
-              <select
-                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+              <FieldSelect
                 value={fmString[f.key] ?? ''}
-                onChange={(e) => handleFieldMap(f.key, e.target.value)}
-              >
-                <option value="">选择字段</option>
-                {(fields ?? []).map((field) => (
-                  <option key={field.id} value={field.name}>
-                    {field.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="选择字段"
+                fields={fields ?? []}
+                onChange={(v) => handleFieldMap(f.key, v)}
+              />
             </div>
           ) : (
             <div key={f.key}>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 {f.label}
               </label>
-              <input
+              <Input
                 type="text"
-                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
                 value={fmString[f.key] ?? ''}
                 onChange={(e) => handleFieldMap(f.key, e.target.value)}
               />
@@ -561,23 +600,26 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
                 {components.map((c) => (
                   <div key={c.id} className="space-y-1.5 rounded-lg border p-2">
                     <div className="flex items-center gap-1.5">
-                      <select
-                        className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      <Select
                         value={c.type}
-                        onChange={(e) => {
-                          const type = e.target.value as IDashboardComponent['type'];
+                        onValueChange={(type) => {
                           updateComponent(c.id, {
-                            type,
+                            type: type as IDashboardComponent['type'],
                             groupBy: type === 'statCard' ? undefined : c.groupBy ?? '',
                           });
                         }}
                       >
-                        {COMPONENT_TYPES.map((t) => (
-                          <option key={t.value} value={t.value}>
-                            {t.label}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger size="sm" className="min-w-0 flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COMPONENT_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Button
                         variant="ghost"
                         size="icon-xs"
@@ -587,111 +629,84 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
                         <TrashIcon className="size-3.5" />
                       </Button>
                     </div>
-                    <input
+                    <Input
                       type="text"
-                      className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      size="sm"
                       placeholder="组件标题"
                       value={c.title}
                       onChange={(e) => updateComponent(c.id, { title: e.target.value })}
                     />
                     <div className="flex items-center gap-1.5">
-                      <select
-                        className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      <FieldSelect
                         value={c.field}
-                        onChange={(e) => updateComponent(c.id, { field: e.target.value })}
-                      >
-                        <option value="">全部记录</option>
-                        {(fields ?? []).map((field) => (
-                          <option key={field.id} value={field.name}>
-                            {field.name}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        className="rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                        placeholder="全部记录"
+                        fields={fields ?? []}
+                        size="sm"
+                        className="min-w-0 flex-1"
+                        onChange={(v) => updateComponent(c.id, { field: v })}
+                      />
+                      <Select
                         value={c.agg}
-                        onChange={(e) =>
-                          updateComponent(c.id, {
-                            agg: e.target.value as IDashboardComponent['agg'],
-                          })
+                        onValueChange={(agg) =>
+                          updateComponent(c.id, { agg: agg as IDashboardComponent['agg'] })
                         }
                       >
-                        {AGG_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger size="sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AGG_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {c.type !== 'statCard' && (
-                      <select
-                        className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      <FieldSelect
                         value={c.groupBy ?? ''}
-                        onChange={(e) => updateComponent(c.id, { groupBy: e.target.value })}
-                      >
-                        <option value="">分组字段（选择后按组统计）</option>
-                        {(fields ?? []).map((field) => (
-                          <option key={field.id} value={field.name}>
-                            {field.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="分组字段（选择后按组统计）"
+                        fields={fields ?? []}
+                        size="sm"
+                        onChange={(v) => updateComponent(c.id, { groupBy: v })}
+                      />
                     )}
                     {c.type === 'scatter' && (
-                      <select
-                        className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      <FieldSelect
                         value={c.field2 ?? ''}
-                        onChange={(e) => updateComponent(c.id, { field2: e.target.value })}
-                      >
-                        <option value="">Y 轴字段（必选）</option>
-                        {(fields ?? []).map((field) => (
-                          <option key={field.id} value={field.name}>
-                            {field.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Y 轴字段（必选）"
+                        fields={fields ?? []}
+                        size="sm"
+                        onChange={(v) => updateComponent(c.id, { field2: v })}
+                      />
                     )}
                     {c.type === 'combo' && (
-                      <select
-                        className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      <FieldSelect
                         value={c.field2 ?? ''}
-                        onChange={(e) => updateComponent(c.id, { field2: e.target.value })}
-                      >
-                        <option value="">折线字段（必选）</option>
-                        {(fields ?? []).map((field) => (
-                          <option key={field.id} value={field.name}>
-                            {field.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="折线字段（必选）"
+                        fields={fields ?? []}
+                        size="sm"
+                        onChange={(v) => updateComponent(c.id, { field2: v })}
+                      />
                     )}
                     {c.type === 'progress' && (
-                      <select
-                        className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      <FieldSelect
                         value={c.field2 ?? ''}
-                        onChange={(e) => updateComponent(c.id, { field2: e.target.value })}
-                      >
-                        <option value="">目标字段（可选，默认 100）</option>
-                        {(fields ?? []).map((field) => (
-                          <option key={field.id} value={field.name}>
-                            {field.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="目标字段（可选，默认 100）"
+                        fields={fields ?? []}
+                        size="sm"
+                        onChange={(v) => updateComponent(c.id, { field2: v })}
+                      />
                     )}
                     {['bar', 'horizontalBar', 'line', 'area'].includes(c.type) && (
-                      <select
-                        className="w-full rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                      <FieldSelect
                         value={c.stackBy ?? ''}
-                        onChange={(e) => updateComponent(c.id, { stackBy: e.target.value })}
-                      >
-                        <option value="">堆叠字段（可选，按此字段分段堆叠）</option>
-                        {(fields ?? []).map((field) => (
-                          <option key={field.id} value={field.name}>
-                            {field.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="堆叠字段（可选，按此字段分段堆叠）"
+                        fields={fields ?? []}
+                        size="sm"
+                        onChange={(v) => updateComponent(c.id, { stackBy: v })}
+                      />
                     )}
                   </div>
                 ))}
