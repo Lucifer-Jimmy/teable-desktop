@@ -1,9 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IFieldVo } from '@teable/core';
+import { Check, Table2 } from '@teable/icons';
 import { createApp, getFields, type IAppVo } from '@teable/openapi';
 import { useTables } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  cn,
+} from '@teable/ui-lib/shadcn';
 import { CalendarRange, BarChart3, ClipboardList, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useMemo, useState } from 'react';
@@ -14,21 +23,21 @@ const TEMPLATES = [
     name: '甘特图',
     description: '基于表数据的时间线甘特图，展示任务进度和负责人',
     icon: CalendarRange,
-    color: 'bg-blue-50 text-blue-600',
+    color: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
   },
   {
     id: 'dashboard' as const,
     name: '仪表盘',
     description: '数据统计仪表盘，支持多种聚合方式和图表类型',
     icon: BarChart3,
-    color: 'bg-violet-50 text-violet-600',
+    color: 'bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400',
   },
   {
     id: 'form' as const,
     name: '动态表单',
     description: '基于表字段生成数据录入表单，提交后写入表记录',
     icon: ClipboardList,
-    color: 'bg-emerald-50 text-emerald-600',
+    color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
   },
 ];
 
@@ -119,6 +128,40 @@ interface IAppCreateDialogProps {
   onClose: () => void;
 }
 
+/** Step indicator dot — same visual language as the admin SetupStepCard
+ *  (hairline circle, green check when complete, current step filled ink). */
+const StepDot = ({
+  n,
+  label,
+  state,
+}: {
+  n: number;
+  label: string;
+  state: 'done' | 'current' | 'todo';
+}) => (
+  <div className="flex items-center gap-2">
+    <div
+      className={cn(
+        'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-medium transition-colors',
+        state === 'done' &&
+          'border-green-600 text-green-600 dark:border-green-400 dark:text-green-400',
+        state === 'current' && 'border-primary bg-primary text-primary-foreground',
+        state === 'todo' && 'text-muted-foreground'
+      )}
+    >
+      {state === 'done' ? <Check className="size-4" /> : n}
+    </div>
+    <span
+      className={cn(
+        'text-xs',
+        state === 'current' ? 'font-medium text-foreground' : 'text-muted-foreground'
+      )}
+    >
+      {label}
+    </span>
+  </div>
+);
+
 export const AppCreateDialog: React.FC<IAppCreateDialogProps> = ({ baseId, open, onClose }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -184,9 +227,14 @@ export const AppCreateDialog: React.FC<IAppCreateDialogProps> = ({ baseId, open,
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{step === 0 ? '选择模板' : '选择数据表'}</DialogTitle>
+          <div className="flex items-center gap-2 pt-1">
+            <StepDot n={1} label="选择模板" state={step === 0 ? 'current' : 'done'} />
+            <span className="h-px flex-1 bg-border" />
+            <StepDot n={2} label="选择数据表" state={step === 1 ? 'current' : 'todo'} />
+          </div>
         </DialogHeader>
 
         {step === 0 && (
@@ -222,9 +270,8 @@ export const AppCreateDialog: React.FC<IAppCreateDialogProps> = ({ baseId, open,
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 应用名称（可选）
               </label>
-              <input
+              <Input
                 type="text"
-                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
                 placeholder="留空则使用模板名称"
                 value={appName}
                 onChange={(e) => setAppName(e.target.value)}
@@ -234,7 +281,7 @@ export const AppCreateDialog: React.FC<IAppCreateDialogProps> = ({ baseId, open,
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 选择数据表
               </label>
-              <div className="grid gap-2">
+              <div className="grid max-h-48 gap-2 overflow-y-auto">
                 {tables.map((t) => (
                   <button
                     key={t.id}
@@ -243,7 +290,10 @@ export const AppCreateDialog: React.FC<IAppCreateDialogProps> = ({ baseId, open,
                     }`}
                     onClick={() => setSelectedTableId(t.id)}
                   >
-                    <span className="font-medium">{t.name}</span>
+                    <span className="flex items-center gap-2 font-medium">
+                      <Table2 className="size-4 text-muted-foreground" />
+                      {t.name}
+                    </span>
                     <span className="text-xs text-muted-foreground">{t.id.slice(0, 8)}</span>
                   </button>
                 ))}
@@ -264,7 +314,7 @@ export const AppCreateDialog: React.FC<IAppCreateDialogProps> = ({ baseId, open,
                 {fieldsData === undefined ? (
                   <div className="text-xs text-muted-foreground">加载字段中...</div>
                 ) : (
-                  <pre className="overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-muted-foreground">
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-muted-foreground">
                     {JSON.stringify(mappingPreview, null, 1)}
                   </pre>
                 )}
