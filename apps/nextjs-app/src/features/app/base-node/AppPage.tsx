@@ -598,7 +598,10 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
               </label>
               <div className="space-y-2">
                 {components.map((c) => (
-                  <div key={c.id} className="space-y-1.5 rounded-lg border p-2">
+                  <div
+                    key={c.id}
+                    className="group space-y-1.5 rounded-lg border p-2 transition-colors hover:border-primary/30"
+                  >
                     <div className="flex items-center gap-1.5">
                       <Select
                         value={c.type}
@@ -623,7 +626,7 @@ const AppConfigSidebar: React.FC<IAppConfigSidebarProps> = ({
                       <Button
                         variant="ghost"
                         size="icon-xs"
-                        className="shrink-0 text-muted-foreground"
+                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                         onClick={() => removeComponent(c.id)}
                       >
                         <TrashIcon className="size-3.5" />

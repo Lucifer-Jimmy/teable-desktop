@@ -12,7 +12,6 @@ import { DuplicateBaseModal } from '../blocks/base/duplicate/DuplicateBaseModal'
 import { TemplateCreateBaseModal } from '../blocks/base/duplicate/TemplateCreateBaseModal';
 import { SpaceSubscriptionModal } from '../blocks/billing/SpaceSubscriptionModal';
 import { useBrand } from '../hooks/useBrand';
-import { PublicOperateButton } from './PublicOperateButton';
 import { UserNav } from './user/UserNav';
 
 export const SideBarFooter: React.FC = () => {
@@ -25,7 +24,6 @@ export const SideBarFooter: React.FC = () => {
   if (isAnonymous || isReadOnlyPreview) {
     return (
       <div className="mx-4 my-3 flex flex-col items-center gap-4">
-        <PublicOperateButton />
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Trans
             ns="common"

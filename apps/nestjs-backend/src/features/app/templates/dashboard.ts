@@ -436,21 +436,22 @@ export const dashboardTemplate: IAppTemplate = {
 
     return htmlShell(
       '仪表盘',
-      `${editable ? '<div class="edit-hint">✋ 拖拽组件调整布局，布局自动保存</div>' : ''}<div class="grid-stack">${gridHtml}</div>`,
+      `${editable ? '<div class="edit-hint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>拖拽组件调整布局，布局自动保存</div>' : ''}<div class="grid-stack">${gridHtml}</div>`,
       `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@11.0.1/dist/gridstack.min.css">
 <script src="https://cdn.jsdelivr.net/npm/gridstack@11.0.1/dist/gridstack-all.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-body{padding:16px;background:#f1f5f9;overflow-y:auto}
-.edit-hint{font-size:12px;color:#64748b;margin-bottom:8px}
+body{padding:20px;background:#f1f5f9;overflow-y:auto}
+.edit-hint{display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;margin-bottom:12px;padding:0 4px}
 .grid-stack{background:transparent}
-.grid-stack-item-content{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}
+.grid-stack-item-content{background:#fff;border:1px solid rgba(15,23,42,.06);border-radius:12px;box-shadow:0 1px 2px rgba(15,23,42,.05);overflow:hidden;transition:box-shadow .15s ease,border-color .15s ease}
+.grid-stack-item:hover .grid-stack-item-content{border-color:rgba(15,23,42,.12);box-shadow:0 4px 12px rgba(15,23,42,.08)}
 .grid-stack.grid-stack-one-column-mode .grid-stack-item{margin-bottom:8px}
 .card{display:flex;flex-direction:column;justify-content:center;height:100%;padding:16px 20px}
-.card-label{font-size:13px;color:#64748b;margin-bottom:4px}
-.card-value{font-size:28px;font-weight:700;color:#1e293b}
-.chart-wrap{display:flex;flex-direction:column;height:100%;padding:16px 20px}
-.chart-title{font-size:14px;font-weight:600;color:#334155;margin-bottom:8px;flex-shrink:0}
+.card-label{font-size:12px;color:#94a3b8;margin-bottom:6px}
+.card-value{font-size:30px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.chart-wrap{display:flex;flex-direction:column;height:100%;padding:16px 20px 14px}
+.chart-title{font-size:13px;font-weight:500;color:#0f172a;margin-bottom:12px;flex-shrink:0;letter-spacing:-.01em}
 /* Chart.js requires the canvas to sit alone inside a sized, positioned
    container — its ResizeObserver watches that container to trigger
    chart.resize() when gridstack resizes the block. A bare flex:1 canvas
@@ -479,6 +480,27 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
   // draw charts first — gridstack resize is picked up by Chart.js's ResizeObserver
   var PALETTE = ${JSON.stringify(PALETTE)};
   function pick(i){ return PALETTE[i % PALETTE.length]; }
+  // global Chart.js defaults: quiet axes, card-style tooltips, compact legends
+  if (window.Chart) {
+    Chart.defaults.font.family = 'Inter, -apple-system, "Segoe UI", sans-serif';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(15,23,42,.06)';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#fff';
+    Chart.defaults.plugins.tooltip.titleColor = '#0f172a';
+    Chart.defaults.plugins.tooltip.bodyColor = '#334155';
+    Chart.defaults.plugins.tooltip.borderColor = 'rgba(15,23,42,.08)';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.boxPadding = 4;
+    Chart.defaults.plugins.tooltip.usePointStyle = true;
+    Chart.defaults.plugins.legend.position = 'bottom';
+    Chart.defaults.plugins.legend.labels.boxWidth = 8;
+    Chart.defaults.plugins.legend.labels.boxHeight = 8;
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.pointStyleWidth = 8;
+  }
   // progress ring: draws the percentage and value/target in the doughnut hole
   var centerTextPlugin = {
     id: 'centerText',
@@ -541,7 +563,7 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
       } else if (c.combo && c.datasets) {
         ds = c.datasets.map(function(d){
           if (d.kind === 'line') return { type: 'line', label: d.label, data: d.data, yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', tension: 0.3, borderWidth: 2, pointRadius: 3, fill: false };
-          return { type: 'bar', label: d.label, data: d.data, yAxisID: 'y', backgroundColor: 'rgba(99,102,241,.75)', borderRadius: 6 };
+          return { type: 'bar', label: d.label, data: d.data, yAxisID: 'y', backgroundColor: 'rgba(99,102,241,.75)', borderRadius: 5, barPercentage: 0.6, categoryPercentage: 0.72 };
         });
         scales = { x: {}, y: { beginAtZero: true, position: 'left' }, y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } } };
         legend = true;
@@ -563,7 +585,9 @@ body{padding:16px;background:#f1f5f9;overflow-y:auto}
           backgroundColor: (c.type === 'pie' || c.type === 'doughnut') ? PALETTE : (c.area ? 'rgba(99,102,241,.25)' : 'rgba(99,102,241,.75)'),
           borderColor: (c.type === 'line' || c.area) ? '#6366f1' : undefined,
           fill: c.area === true, borderWidth: (c.type === 'line' || c.area) ? 2 : 0,
-          borderRadius: c.type === 'bar' ? 6 : 0,
+          borderRadius: c.type === 'bar' ? 5 : 0,
+          barPercentage: 0.6,
+          categoryPercentage: 0.72,
         }];
         legend = c.type === 'pie' || c.type === 'doughnut';
       }

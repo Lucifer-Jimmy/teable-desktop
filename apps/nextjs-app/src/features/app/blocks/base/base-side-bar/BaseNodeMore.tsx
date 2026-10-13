@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IHttpError } from '@teable/core';
 import { getUniqName } from '@teable/core';
-import { FileCsv, FileExcel, History, Code2, Download, Share2 } from '@teable/icons';
+import { FileCsv, FileExcel, History, Code2, Download } from '@teable/icons';
 import type {
   IBaseNodeVo,
   IBaseNodeTableResourceMeta,
@@ -75,7 +75,6 @@ import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
 import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
-import { NodeShareDialog } from './NodeShareDialog';
 
 const useNode = (resourceId: string) => {
   const { treeItems } = useBaseNodeContext();
@@ -157,7 +156,6 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
   canDelete?: boolean;
   canPermanentDelete?: boolean;
   canDuplicate?: boolean;
-  canShare?: boolean;
   nodeTypeLabel: string;
 }
 
@@ -176,7 +174,6 @@ const CommonOperation = (props: ICommonOperationProps) => {
     canDelete = false,
     canPermanentDelete = false,
     canDuplicate = false,
-    canShare = false,
     nodeTypeLabel,
     extraActions = [],
   } = props;
@@ -185,12 +182,10 @@ const CommonOperation = (props: ICommonOperationProps) => {
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [deletePermanent, setDeletePermanent] = useState<boolean | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const node = useNode(resourceId);
   const nodeName = node?.resourceMeta?.name;
-  const shareNodeId = canShare && node ? node.id : undefined;
 
   const defaultName = useMemo(
     () => `${nodeName ?? nodeTypeLabel} ${t('space:baseModal.copy')}`,
@@ -267,13 +262,8 @@ const CommonOperation = (props: ICommonOperationProps) => {
   );
 
   const hasVisibleCommonActions =
-    canRename ||
-    canDelete ||
-    canPermanentDelete ||
-    canDuplicate ||
-    Boolean(shareNodeId) ||
-    Boolean(node);
-  const hasCommonActions = hasVisibleCommonActions || canShare;
+    canRename || canDelete || canPermanentDelete || canDuplicate || Boolean(node);
+  const hasCommonActions = hasVisibleCommonActions;
 
   if (!hasCommonActions && !extraActions.length) {
     return null;
@@ -306,13 +296,6 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={handleDuplicateClick}
           />
         )}
-        {shareNodeId && (
-          <ListMenuItem
-            icon={<Share2 className="size-4" />}
-            label={t('common:template.non.share')}
-            onClick={() => setShareDialogOpen(true)}
-          />
-        )}
         {node && (
           <ListMenuItem
             icon={<Info className="size-4" />}
@@ -337,13 +320,6 @@ const CommonOperation = (props: ICommonOperationProps) => {
         )}
         {duplicateDialog}
         {deleteDialog}
-        {shareNodeId && (
-          <NodeShareDialog
-            open={shareDialogOpen}
-            onOpenChange={setShareDialogOpen}
-            nodeId={shareNodeId}
-          />
-        )}
         {node && (
           <BaseNodeInfoDialog
             node={node}
@@ -385,12 +361,6 @@ const CommonOperation = (props: ICommonOperationProps) => {
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
-          {shareNodeId && (
-            <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
-              <Share2 className="me-2 size-4" />
-              {t('common:template.non.share')}
-            </DropdownMenuItem>
-          )}
           {node && (
             <DropdownMenuItem onClick={() => setNodeInfoDialogOpen(true)}>
               <Info className="me-2 size-4" />
@@ -419,13 +389,6 @@ const CommonOperation = (props: ICommonOperationProps) => {
       </DropdownMenu>
       {duplicateDialog}
       {deleteDialog}
-      {shareNodeId && (
-        <NodeShareDialog
-          open={shareDialogOpen}
-          onOpenChange={setShareDialogOpen}
-          nodeId={shareNodeId}
-        />
-      )}
       {node && (
         <BaseNodeInfoDialog
           node={node}
@@ -445,7 +408,6 @@ export const DashboardOperation = (props: IBaseNodeMoreProps) => {
   const canDelete = false;
   const canPermanentDelete = Boolean(permission?.['base|delete']);
   const canDuplicate = Boolean(permission?.['base|update'] && !disallowDashboard);
-  const canShare = Boolean(permission?.['base|update']);
 
   return (
     <CommonOperation
@@ -455,7 +417,6 @@ export const DashboardOperation = (props: IBaseNodeMoreProps) => {
       canDelete={canDelete}
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
-      canShare={canShare}
     />
   );
 };
@@ -467,7 +428,6 @@ export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
   const canDelete = Boolean(permission?.['automation|delete']);
   const canPermanentDelete = false;
   const canDuplicate = Boolean(permission?.['automation|create']);
-  const canShare = Boolean(permission?.['base|update']);
 
   return (
     <CommonOperation
@@ -477,7 +437,6 @@ export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
       canDelete={canDelete}
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
-      canShare={canShare}
     />
   );
 };
@@ -490,7 +449,6 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
   const canDelete = Boolean(permission?.['app|delete']);
   const canPermanentDelete = false;
   const canDuplicate = Boolean(permission?.['app|create']);
-  const canShare = Boolean(permission?.['base|update']);
 
   return (
     <CommonOperation
@@ -500,7 +458,6 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
       canDelete={canDelete}
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
-      canShare={canShare}
     />
   );
 };
@@ -518,7 +475,6 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
   const canDelete = false;
   const canPermanentDelete = !node?.children?.length && Boolean(permission?.['base|update']);
   const canDuplicate = false;
-  const canShare = Boolean(permission?.['base|update']);
 
   return (
     <CommonOperation
@@ -528,7 +484,6 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
       canDelete={canDelete}
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
-      canShare={canShare}
     />
   );
 };
@@ -580,7 +535,6 @@ export const TableOperation = (props: ITableOperationProps) => {
   const [importVisible, setImportVisible] = useState(false);
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
@@ -612,7 +566,6 @@ export const TableOperation = (props: ITableOperationProps) => {
       }),
     [basePermission, canTableRecordHistoryRead, canTableTrashRead, canTableArchiveRead, node, table]
   );
-  const shareNodeId = menuPermission.shareTable && node ? node.id : undefined;
 
   const deleteTable = async (permanent: boolean) => {
     if (!resourceId || isDeleting) return;
@@ -821,13 +774,6 @@ export const TableOperation = (props: ITableOperationProps) => {
         </APIDialog>
       )}
 
-      {shareNodeId && (
-        <NodeShareDialog
-          open={shareDialogOpen}
-          onOpenChange={setShareDialogOpen}
-          nodeId={shareNodeId}
-        />
-      )}
       {node && (
         <BaseNodeInfoDialog
           node={node}
@@ -930,13 +876,6 @@ export const TableOperation = (props: ITableOperationProps) => {
               <TableTrash tableId={resourceId} />
             </SheetContent>
           </Sheet>
-        )}
-        {shareNodeId && (
-          <ListMenuItem
-            icon={<Share2 className="size-4" />}
-            label={t('common:template.non.share')}
-            onClick={() => setShareDialogOpen(true)}
-          />
         )}
         {node && (
           <ListMenuItem
@@ -1108,13 +1047,6 @@ export const TableOperation = (props: ITableOperationProps) => {
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
             </DropdownMenuSub>
-          )}
-
-          {shareNodeId && (
-            <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
-              <Share2 className="me-2 size-4" />
-              {t('common:template.non.share')}
-            </DropdownMenuItem>
           )}
 
           {node && (
